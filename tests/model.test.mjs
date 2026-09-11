@@ -55,6 +55,14 @@ test('cost independently checks ceil spares, screening, protection, shielding, N
 test('zero events, 95% one-sided limit stays positive and declines with exposure',()=>{
  const rate=zeroEventUpperRate(6,2);assert.ok(Math.abs(rate-(-Math.log(.05)/365.25))<1e-15);assert.equal(zeroEventUpperRate(12,2),rate/2);assert.throws(()=>zeroEventUpperRate(0,2));
 });
+test('flight observation events are recorded per event type, not as one combined count',()=>{
+ const p=createProject();assert.deepEqual(p.flight.events,{seu:0,sel:0,sefi:0});validateProject(p);
+ const legacy=createProject();legacy.flight.events=3;assert.throws(()=>validateProject(legacy),/사건유형별/);
+ const partial=createProject();delete partial.flight.events.sefi;assert.throws(()=>validateProject(partial));
+ const negative=createProject();negative.flight.events.sel=-1;assert.throws(()=>validateProject(negative));
+ const fractional=createProject();fractional.flight.events.sefi=1.5;assert.throws(()=>validateProject(fractional));
+ const observed=createProject();observed.flight.events.seu=2;validateProject(observed);
+});
 test('CSV round trip preserves assumptions, missing values, units and quoted source',()=>{
  const p=createProject();p.environments[0].source='Report, page "2"\nline 3';
  const q=importEnvironmentCsv(p,environmentCsv(p));
