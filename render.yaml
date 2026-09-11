@@ -1,0 +1,19 @@
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: kleo-chip
+    runtime: static
+    buildCommand: npm test && npm run build
+    staticPublishPath: ./build
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

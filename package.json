@@ -1,0 +1,14 @@
+{
+  "name": "kleo-chip",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "K-LEO 우주반도체·COTS 적용성 시뮬레이터",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/build-render.mjs",
+    "start": "python3 start.py",
+    "preview": "python3 -m http.server 8000 --bind 127.0.0.1 --directory build"
+  }
+}

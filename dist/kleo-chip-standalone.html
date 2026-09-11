@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="ko">
+<head>
+ <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>K-LEO CHIP · 우주반도체 설계·적용성 시뮬레이터</title>
+ <meta name="description" content="64비트 메모리 오류 주입, SECDED·TMR 보호설계와 K-LEO 궤도별 방사선·우주검증·비용을 비교하는 시뮬레이터.">
+ <meta name="theme-color" content="#102632">
+ <style>:root{--ink:#162f3c;--muted:#5b707b;--line:#dbe4e9;--paper:#fff;--bg:#f2f6f8;--nav:#102632;--accent:#057b70;--accent-light:#e5f6f0;--amber:#925709;--amber-bg:#fff4de;--red:#bd4243;--blue:#426bc4;--violet:#7a60af;--radius:13px;font-family:Inter,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;color:var(--ink);font-size:16px;line-height:1.55;font-synthesis:none}
+*{box-sizing:border-box}body{margin:0;background:var(--bg)}button,input,select,textarea{font:inherit}button,a,input,select,textarea{touch-action:manipulation}button{cursor:pointer}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #2b9eaa;outline-offset:3px}button:disabled{opacity:.5;cursor:not-allowed}svg{display:block}h1,h2,h3,p{margin:0}h1{font-size:1.8rem;line-height:1.35;letter-spacing:-.035em}h2{font-size:1.08rem;letter-spacing:-.015em}h3{font-size:1rem}small,.small{font-size:.875rem}strong{font-weight:650}input,select,textarea{width:100%;min-width:0;color:var(--ink);background:#fff;border:1px solid #c8d5dd;border-radius:7px;padding:.6rem .7rem;min-height:42px}input[type=number]{font-variant-numeric:tabular-nums}input[aria-invalid=true]{border-color:var(--red)}textarea{min-height:95px;resize:vertical;line-height:1.6}label{display:block;font-size:.875rem;font-weight:550}label>span{display:block;margin-bottom:.38rem}label .help{display:block;font-size:.8rem;font-weight:400;color:var(--muted);margin-top:.4rem}button{border:0}.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:42px;padding:.55rem .9rem;border:1px solid #cbd8df;border-radius:8px;background:#fff;color:var(--ink);font-size:.875rem;font-weight:600;text-decoration:none;white-space:nowrap}.btn:hover{background:#edf3f5;text-decoration:none}.btn.primary{background:var(--accent);border-color:var(--accent);color:white}.btn.primary:hover{background:#06675f}.btn.quiet{background:transparent;border-color:transparent;color:var(--muted)}.btn.danger{color:var(--red)}.icon{height:19px;width:19px;flex-shrink:0}.shell{display:grid;grid-template-columns:235px minmax(0,1fr);min-height:100vh}.sidebar{background:var(--nav);color:#fff;display:flex;flex-direction:column;padding:30px 16px 22px;position:sticky;top:0;height:100vh}.brand{display:flex;gap:11px;align-items:center;margin:0 13px 38px}.brand .icon{height:30px;width:30px;color:#5be3b6}.brand strong{font-size:1.25rem;letter-spacing:.015em}.brand small{display:block;color:#a6bac5;font-size:.75rem;letter-spacing:.07em}.nav-caption{font-size:.75rem;color:#8fa6b3;letter-spacing:.12em;margin:0 15px 10px}.nav{display:grid;gap:7px}.nav button{display:flex;gap:11px;align-items:center;text-align:left;color:#b9cbd4;background:none;padding:13px 14px;border-radius:8px;font-size:.92rem;min-height:46px}.nav button:hover{background:#1b3745;color:#fff}.nav button.active{background:#23424f;color:#fff;box-shadow:inset 3px 0 #5be3b6}.nav button.active .icon{color:#5be3b6}.side-bottom{margin-top:auto;border-top:1px solid #2c4350;padding:19px 13px 0;color:#adc0c9;font-size:.8rem}.side-bottom p{margin-bottom:11px}.version{font-family:ui-monospace,monospace;font-size:.75rem;color:#82a1af}.main-wrap{min-width:0}.topbar{border-bottom:1px solid var(--line);min-height:65px;padding:0 34px;display:flex;justify-content:space-between;align-items:center;gap:20px;background:#fff;font-size:.875rem;color:var(--muted)}.topbar strong{color:var(--ink)}.top-actions{display:flex;gap:8px;align-items:center}.top-actions .btn{min-height:36px;padding:.35rem .65rem}.main{max-width:1500px;margin:auto;padding:28px 34px 45px}.page-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:22px}.eyebrow{font-size:.75rem;letter-spacing:.15em;color:var(--accent);font-weight:650;margin-bottom:7px}.subheading{color:var(--muted);margin-top:7px;font-size:.93rem}.badge{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;line-height:1.4;padding:5px 9px;border-radius:5px;background:#edf2f5;color:#506977;white-space:nowrap;font-weight:600}.badge.amber{background:var(--amber-bg);color:var(--amber)}.badge.green{background:var(--accent-light);color:#086b5c}.badge.red{background:#ffeded;color:#a12f31}.badge.blue{background:#edf1fc;color:var(--blue)}.notice{display:flex;gap:11px;align-items:flex-start;padding:13px 16px;border:1px solid #e8d8b6;border-radius:8px;background:#fffaef;font-size:.875rem;color:#775320;margin-bottom:20px}.notice .icon{margin-top:1px}.notice.info{background:#eef5fa;border-color:#d2e2ed;color:#405f75}.notice p{margin:0}.notice strong{margin-right:5px}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}.card-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:19px 22px;border-bottom:1px solid #e6edf1}.card-body{padding:22px}.card-sub{color:var(--muted);font-size:.8rem;margin-top:4px}.controls{display:grid;grid-template-columns:1.45fr repeat(3,1fr);gap:18px;margin-bottom:20px;padding:18px 22px;align-items:end}.grid-two{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:20px;margin-top:20px}.grid-equal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}.stack{display:grid;gap:20px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}.metric{padding:18px 20px;position:relative}.metric-label{color:var(--muted);font-size:.85rem;display:flex;align-items:center;gap:7px}.metric-value{font-family:Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-size:1.7rem;line-height:1.25;letter-spacing:-.04em;margin-top:11px;white-space:nowrap;font-weight:650}.metric-value small{font-size:.78rem;margin-left:5px;font-family:inherit;letter-spacing:0;font-weight:400;color:var(--muted)}.metric-foot{font-size:.75rem;color:var(--muted);margin-top:9px}.metric:first-child:before{content:'';height:3px;position:absolute;top:0;left:0;right:0;background:var(--accent)}.metric-foot.amber,.text-amber{color:var(--amber)}.text-red{color:var(--red)}.text-green{color:var(--accent)}.text-muted{color:var(--muted)}.legend{display:flex;flex-wrap:wrap;gap:17px;font-size:.8rem;color:var(--muted)}.legend span{display:flex;align-items:center;gap:6px}.swatch{height:3px;width:20px;background:var(--accent)}.chart-wrap{padding:12px 18px 5px}.chart{width:100%;height:auto;overflow:visible}.chart text{font-family:inherit;font-size:13px;fill:#647984}.chart .axis-title{font-size:12px}.chart-caption{font-size:.8rem;color:var(--muted);padding:0 22px 20px}.kv{display:flex;justify-content:space-between;align-items:baseline;gap:20px;font-size:.9rem;padding:10px 0;border-bottom:1px solid #edf2f5}.kv:last-child{border:0}.kv span{color:var(--muted)}.kv b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}.part-select{font-size:1rem;font-weight:600;margin-top:14px;margin-bottom:12px}.part-description{font-size:.85rem;color:var(--muted);line-height:1.65}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left;font-size:.875rem}th{background:#f7fafb;color:#647984;font-weight:550;padding:12px 18px;border-bottom:1px solid var(--line);white-space:nowrap}td{padding:15px 18px;border-bottom:1px solid #e7eef2;vertical-align:middle}tbody tr:last-child td{border-bottom:0}td.number{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}tr.selected{background:#edf8f5}tr.clickable{cursor:pointer}tr.clickable:hover{background:#f2f8fa}td .secondary{display:block;font-size:.75rem;color:var(--muted);margin-top:4px}.table-note{font-size:.8rem;color:var(--muted);padding:13px 22px;border-top:1px solid var(--line)}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.field-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.full{grid-column:1/-1}.spaced{margin-top:20px}.pill-row{display:flex;gap:8px;flex-wrap:wrap}.segmented{display:flex;background:#edf2f5;padding:4px;border-radius:9px;gap:4px}.segmented button{flex:1;padding:10px 13px;border-radius:7px;background:transparent;color:var(--muted);font-size:.875rem}.segmented button.active{background:#fff;box-shadow:0 1px 5px #1737451a;color:var(--accent);font-weight:650}.explain{font-size:.875rem;color:var(--muted);line-height:1.75}.explain p+p{margin-top:10px}.explain ul{margin:10px 0;padding-left:20px}.explain li+li{margin-top:6px}.bar-row{display:grid;grid-template-columns:115px 1fr 95px;gap:12px;align-items:center;font-size:.85rem;margin:20px 0}.bar{height:11px;border-radius:3px;background:#e9eff2;overflow:hidden}.bar>i{display:block;height:100%;background:var(--accent);min-width:0;border-radius:3px}.bar-row b{text-align:right;font-variant-numeric:tabular-nums}.tasks{display:grid;gap:0}.task{padding:18px 22px;display:grid;grid-template-columns:82px minmax(0,1fr) 88px;gap:15px;border-bottom:1px solid #e7eef2;align-items:start}.task:last-child{border:0}.task p{font-size:.875rem;color:var(--muted);margin-top:5px}.task select{font-size:.875rem;padding:.45rem;min-height:36px}.task .badge{justify-content:center;margin-top:2px}.empty{color:var(--muted);padding:35px;text-align:center;font-size:.9rem}.empty strong{display:block;font-size:1rem;color:var(--ink);margin-bottom:9px}.source-list{list-style:none;padding:0;margin:0}.source-list li{padding:14px 0;border-bottom:1px solid #e7eef2}.source-list li:first-child{padding-top:0}.source-list li:last-child{border:0;padding-bottom:0}.source-list a{font-size:.9rem;font-weight:600}.source-list p{color:var(--muted);font-size:.8rem;margin-top:4px}.download-box{padding:20px;border:1px dashed #b9ccd7;border-radius:10px;background:#f7fafb;margin:16px 0}.download-box p{font-size:.85rem;color:var(--muted);margin-bottom:13px}.button-row{display:flex;flex-wrap:wrap;gap:9px}.footer{display:flex;justify-content:space-between;gap:14px;font-size:.75rem;color:#738a95;margin-top:28px}.formula{font-family:ui-monospace,SFMono-Regular,monospace;font-size:.85rem;background:#eff4f6;border-radius:7px;padding:13px;overflow-x:auto;white-space:normal;margin:10px 0}details.method{border-top:1px solid var(--line);padding:17px 0}details.method:last-child{padding-bottom:0}details.method:first-child{border:0;padding-top:0}summary{font-size:.9rem;font-weight:600;cursor:pointer}.method .explain{margin-top:12px}.skip-link{position:absolute;top:-80px;left:10px;z-index:100;background:white;padding:12px}.skip-link:focus{top:10px}.boot{padding:60px}.boot strong{font-size:1.5rem}.boot p{margin-top:12px;color:var(--muted)}#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:100;color:#fff;background:#173743;padding:13px 22px;border-radius:9px;max-width:min(600px,90vw);box-shadow:0 6px 30px #0002;font-size:.9rem}#toast.error{background:#a02d37}#print-root{display:none}.selected-tag{font-size:.72rem;color:var(--accent);margin-left:6px}.chip-mini{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:#e8f3f2;border-radius:8px;color:var(--accent)}.row-heading{display:flex;gap:10px;align-items:center}.count{font-size:.75rem;padding:2px 8px;background:#eaf0f4;border-radius:20px;color:var(--muted);margin-left:6px}.input-note{font-size:.8rem;color:var(--muted);margin-top:14px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(min-width:1650px){.main{padding-top:34px}.card-body{padding:25px}.metric{padding:22px}.metric-value{font-size:2rem}}
+@media(max-width:1150px){.shell{grid-template-columns:200px minmax(0,1fr)}.sidebar{padding-left:10px;padding-right:10px}.main{padding:24px}.topbar{padding:0 24px}.brand{margin-left:8px;margin-right:8px}.brand strong{font-size:1.1rem}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-two{grid-template-columns:1fr}.field-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){.shell{display:block}.sidebar{height:auto;position:relative;padding:16px 18px 0}.brand{margin:0 0 15px}.brand small{display:none}.side-bottom,.nav-caption{display:none}.nav{display:flex;overflow-x:auto;gap:2px;padding-bottom:9px}.nav button{white-space:nowrap;padding:10px 12px;min-height:42px;font-size:.85rem;gap:7px}.nav button.active{box-shadow:inset 0 -2px #5be3b6}.nav .icon{width:16px;height:16px}.topbar{padding:10px 18px;min-height:52px}.topbar .crumb{display:none}.top-actions{margin-left:auto;flex-wrap:wrap}.main{padding:22px 18px}.page-heading{align-items:flex-start;gap:10px}h1{font-size:1.5rem}.subheading{font-size:.875rem}.page-heading>.btn{padding:.5rem .7rem}.controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:16px}.grid-equal{grid-template-columns:1fr}.card-head{padding:16px 18px}.card-body{padding:18px}.card-head .legend{display:none}.metric{padding:17px}.metric-value{font-size:1.6rem}.task{grid-template-columns:1fr 83px;padding:17px}.task>.badge{display:none}.footer{flex-direction:column}.field-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}.chart text{font-size:15px}}
+@media(max-width:460px){.top-actions .btn{font-size:.8rem}.top-actions .btn .icon{display:none}.page-heading{flex-wrap:wrap}.page-heading>.btn{min-height:34px}.metrics{gap:10px}.metric-label{font-size:.8rem}.metric-value{font-size:1.4rem}.metric-foot{font-size:.75rem}.field-grid,.field-grid.three{grid-template-columns:1fr}.notice{font-size:.8rem;padding:12px}.bar-row{grid-template-columns:85px 1fr 80px;gap:8px}.segmented button{padding:9px;font-size:.8rem}}
+@media(prefers-reduced-motion:no-preference){.card{animation:appear .22s ease-out}@keyframes appear{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}}
+@media print{@page{size:A4;margin:16mm}body{background:white;font-size:10pt;color:#111}#app,#toast,.skip-link{display:none!important}#print-root{display:block}#print-root h1{font-size:19pt;margin-bottom:8px}#print-root h2{font-size:13pt;margin:22px 0 10px}#print-root p{margin:8px 0}#print-root table{font-size:9pt}#print-root th,#print-root td{padding:8px;border:1px solid #ccc}#print-root tr{break-inside:avoid}#print-root .notice{font-size:9pt}#print-root .print-meta{font-size:9pt;color:#444}#print-root li{margin:6px 0}a{color:#111}}
+
+/* Design lab extends the existing K-LEO workspace. */
+.lab-toolbar{display:flex;align-items:center;gap:24px;padding:18px 22px;margin-bottom:20px;flex-wrap:wrap}.lab-data-field{flex:1;min-width:240px}.lab-data-field form{display:flex;gap:8px;margin-top:7px}.lab-data-field input{font-family:ui-monospace,monospace;letter-spacing:.05em}.lab-presets{flex:2;min-width:260px}.lab-presets>span{display:block;margin-bottom:8px}.lab-workspace{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(270px,1fr);gap:20px;align-items:start}.lab-modes{flex-wrap:wrap}.lab-modes button{white-space:normal;min-width:110px}.bit-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px}.bit{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:49px;padding:4px 1px;border:1px solid #cbd9e1;border-radius:5px;color:var(--ink);background:#f5f9fb;font-family:ui-monospace,monospace}.bit span{font-size:12px;font-weight:400;color:#526976}.bit b{font-size:17px;line-height:1.2;font-weight:600}.bit:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.bit.parity{background:#eaf0fd;border-color:#bfcfe9}.bit.flipped{background:#ffeded;color:#ac3039;border-color:#d47b82}.bit.flipped span{color:#922d38}.bit-legend{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0 12px;font-size:.8rem;color:var(--muted)}.bit-legend span{display:flex;align-items:center;gap:6px}.bit-legend span:before{content:'';width:10px;height:10px;background:#f5f9fb;border:1px solid #a5b9c3;border-radius:2px}.bit-legend .legend-parity:before{background:#dce6ff;border-color:#b5c8e4}.bit-legend .legend-flipped:before{background:#ffd8dc;border-color:#d47b82}.replica-head{font-weight:600;font-size:.875rem;margin:15px 0 8px;display:flex;justify-content:space-between}.replica-head span{font-size:.8rem;font-weight:400;color:var(--muted)}.lab-readout{background:#102632;color:#eaf3f7;border-radius:13px;border:1px solid #24414e;padding:25px;position:sticky;top:20px;min-width:0}.lab-readout .eyebrow{color:#73dcbc;margin-bottom:10px}.lab-readout h2{font-size:1.3rem}.readout-status{margin:17px 0 24px}.lab-readout label{font-weight:400;color:#a9c0cc;font-size:.875rem;margin-top:17px}.hex-value{font-family:ui-monospace,monospace;letter-spacing:.035em;line-height:1.5;font-size:clamp(.95rem,1.35vw,1.45rem);color:#75e5bf;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;margin-top:3px}.hex-value.damaged{color:#ff969f}.readout-line{display:grid;gap:5px;border-top:1px solid #2d4653;padding:15px 0;margin-top:5px;font-size:.875rem}.readout-line span{color:#a9c0cc}.readout-line strong{font-weight:500}.readout-note{font-size:.875rem;line-height:1.7;color:#b7cad4;margin-top:17px}.campaign-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:.875rem;margin:20px 0}.campaign-legend>span{display:flex;align-items:center;gap:7px}.campaign-legend>span:before{content:'';width:10px;height:10px;border-radius:2px}.campaign-legend .correct:before,.campaign-bar .correct{background:#087f76}.campaign-legend .detected:before,.campaign-bar .detected{background:#bf812c}.campaign-legend .silent:before,.campaign-bar .silent{background:#bd4243}.campaign-bar-row{display:grid;grid-template-columns:195px 1fr;gap:18px;align-items:center;margin:17px 0;font-size:.875rem}.campaign-bar-row strong{font-weight:550}.campaign-bar{display:flex;height:20px;background:#e9eff2;border-radius:4px;overflow:hidden}.campaign-bar span{display:block;height:100%}.lab-toolbar .btn{white-space:normal}.lab-workspace .card-body{min-width:0}
+@media(max-width:1100px){.lab-workspace{grid-template-columns:1fr}.lab-readout{position:static}.hex-value{font-size:1.4rem}.lab-readout{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}.lab-readout .eyebrow,.lab-readout h2,.readout-status,.readout-note{grid-column:1/-1}.lab-readout label,.lab-readout .hex-value,.readout-line{grid-column:1/-1}.readout-status{margin-bottom:0}}
+@media(max-width:600px){.bit-grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}.lab-toolbar{padding:16px;gap:18px}.lab-data-field,.lab-presets{min-width:0;flex-basis:100%}.lab-workspace{gap:16px}.lab-modes{gap:3px}.lab-modes button{min-width:90px;font-size:.875rem;padding:9px 6px}.lab-readout{padding:20px}.campaign-bar-row{grid-template-columns:1fr;gap:6px}.bit-legend{font-size:.8rem;gap:9px}.lab-data-field form{flex-wrap:wrap}.lab-data-field input{flex:1;min-width:190px}}
+</style>
+ <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23102632'/%3E%3Cpath d='M10 10h20v20H10zM15 4v6m10-6v6M15 30v6m10-6v6M4 15h6m-6 10h6m20-10h6m-6 10h6' fill='none' stroke='%235be3b6' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+ <a class="skip-link" href="#main">본문으로 이동</a>
+ <div id="app"><main class="boot"><strong>K-LEO CHIP</strong><p>분석 화면을 준비하고 있습니다.</p></main></div>
+ <div id="toast" role="status" aria-live="polite" hidden></div>
+ <div id="print-root"></div>
+ <input id="project-file" type="file" accept=".json,application/json" hidden>
+ <input id="environment-file" type="file" accept=".csv,text/csv" hidden>
+ <noscript>이 시뮬레이터를 사용하려면 브라우저에서 JavaScript를 활성화해주세요.</noscript>
+ <script type="module">
+// Bit-accurate behavioral fault injection. No orbital event-rate assumptions.
+const PARITY_POSITIONS = [1, 2, 4, 8, 16, 32, 64];
+const DATA_POSITIONS = Array.from({length:71}, (_,i)=>i+1).filter(p=>!PARITY_POSITIONS.includes(p));
+const PATTERNS = {
+  single: '독립 1-bit 오류',
+  double: '독립 2-bit 오류',
+  triple: '독립 3-bit 오류',
+  common: '상관 2-bit 오류'
+};
+const ARCHITECTURES = {raw:'보호 없음', ecc:'SECDED (72,64)', tmr:'TMR + 불일치 검출'};
+const bitsOK = (a,n)=>Array.isArray(a)&&a.length===n&&a.every(x=>x===0||x===1);
+const same = (a,b)=>a.every((x,i)=>x===b[i]);
+function hexToBits(hex) {
+  if(typeof hex!=='string'||!/^[0-9a-fA-F]{16}$/.test(hex))throw Error('데이터는 정확히 16자리의 16진수로 입력하세요.');
+  const n=BigInt('0x'+hex);
+  return Array.from({length:64},(_,i)=>Number((n>>BigInt(i))&1n));
+}
+function bitsToHex(bits) {
+  if(!bitsOK(bits,64))throw Error('64개의 이진 비트가 필요합니다.');
+  return bits.reduce((n,b,i)=>n|(BigInt(b)<<BigInt(i)),0n).toString(16).toUpperCase().padStart(16,'0');
+}
+function encode64(data) {
+  if(!bitsOK(data,64))throw Error('64비트 데이터가 필요합니다.');
+  const code=Array(72).fill(0);
+  DATA_POSITIONS.forEach((p,i)=>code[p-1]=data[i]);
+  for(const p of PARITY_POSITIONS) {
+    let parity=0;
+    for(let j=1;j<=71;j++)if(j&p)parity^=code[j-1];
+    code[p-1]=parity;
+  }
+  code[71]=code.slice(0,71).reduce((a,b)=>a^b,0);
+  return code;
+}
+function decode72(input) {
+  if(!bitsOK(input,72))throw Error('72비트 SECDED 코드워드가 필요합니다.');
+  const code=[...input];let syndrome=0;
+  for(let p=1;p<=71;p++)if(code[p-1])syndrome^=p;
+  const odd=code.reduce((a,b)=>a^b,0);
+  let flag='clean',correctedPosition=null;
+  if(odd) {
+    if(syndrome<=71) {
+      correctedPosition=syndrome||72;
+      code[correctedPosition-1]^=1;
+      flag='corrected';
+    } else flag='uncorrectable';
+  } else if(syndrome)flag='uncorrectable';
+  return {code,data:DATA_POSITIONS.map(p=>code[p-1]),flag,syndrome,odd,correctedPosition};
+}
+function vote64(replicas) {
+  if(!Array.isArray(replicas)||replicas.length!==3||!replicas.every(a=>bitsOK(a,64)))throw Error('64비트 복제본 3개가 필요합니다.');
+  const data=replicas[0].map((_,i)=>Number(replicas[0][i]+replicas[1][i]+replicas[2][i]>=2));
+  const disagreements=data.map((_,i)=>replicas[0][i]!==replicas[1][i]||replicas[1][i]!==replicas[2][i]);
+  return {data,disagreementBits:disagreements.filter(Boolean).length};
+}
+function createLab(hex='0123456789ABCDEF') {
+  const data=hexToBits(hex);
+  return {version:1,hex:hex.toUpperCase(),view:'ecc',raw:[...data],ecc:encode64(data),tmr:[...Array(3)].map(()=>[...data]),seed:426,trials:2000,pattern:'double'};
+}
+function validateLab(lab) {
+  if(!lab||lab.version!==1)throw Error('지원하지 않는 설계 실험 형식입니다.');
+  hexToBits(lab.hex);
+  if(!Object.hasOwn(ARCHITECTURES,lab.view)||!Object.hasOwn(PATTERNS,lab.pattern))throw Error('실험 방식 또는 오류 유형을 확인하세요.');
+  if(!bitsOK(lab.raw,64)||!bitsOK(lab.ecc,72)||!Array.isArray(lab.tmr)||lab.tmr.length!==3||!lab.tmr.every(a=>bitsOK(a,64)))throw Error('저장된 메모리 비트 형식을 확인하세요.');
+  if(!Number.isInteger(lab.seed)||lab.seed<0||lab.seed>4294967295)throw Error('시드는 0~4294967295 정수입니다.');
+  if(!Number.isInteger(lab.trials)||lab.trials<1||lab.trials>20000)throw Error('반복 횟수는 1~20,000 정수입니다.');
+  return lab;
+}
+function resetMemory(lab,hex=lab.hex) {
+  const fresh=createLab(hex);
+  return {...lab,hex:fresh.hex,raw:fresh.raw,ecc:fresh.ecc,tmr:fresh.tmr};
+}
+function inspectLab(lab) {
+  validateLab(lab);
+  const golden=hexToBits(lab.hex),decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
+  const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
+  const mismatch=a=>a.reduce((n,b,i)=>n+Number(b!==golden[i]),0);
+  return {
+    raw:{data:lab.raw,hex:bitsToHex(lab.raw),mismatch:mismatch(lab.raw),status:rawCorrect?'correct':'silent',flag:'검출회로 없음',physicalBits:64},
+    ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',physicalBits:72},
+    tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent',physicalBits:192}
+  };
+}
+function flipBit(lab,bank,index,replica=0) {
+  validateLab(lab);
+  if(!Object.hasOwn(ARCHITECTURES,bank)||!Number.isInteger(index)||index<0||index>=(bank==='ecc'?72:64)||!Number.isInteger(replica)||replica<0||replica>2)throw Error('비트 위치를 확인하세요.');
+  const next=structuredClone(lab);
+  if(bank==='tmr')next.tmr[replica][index]^=1;else next[bank][index]^=1;
+  return next;
+}
+function injectPreset(lab,preset) {
+  if(!['single','double','common','triple'].includes(preset))throw Error('오류 예시를 확인하세요.');
+  const next=resetMemory(lab);
+  const n=preset==='single'?1:preset==='triple'?3:2;
+  for(let i=0;i<n;i++){next.raw[i]^=1;next.ecc[DATA_POSITIONS[i]-1]^=1;}
+  if(preset==='common'||preset==='triple')for(let i=0;i<n;i++)next.tmr[i][0]^=1;
+  else for(let i=0;i<n;i++)next.tmr[0][i]^=1;
+  return next;
+}
+function scrubMemory(lab) {
+  const next=structuredClone(lab);
+  // Never restore from the golden reference: hardware cannot know it.
+  if(lab.view==='ecc') {
+    const d=decode72(lab.ecc);
+    if(d.flag!=='uncorrectable')next.ecc=d.code;
+  } else if(lab.view==='tmr') {
+    const {data}=vote64(lab.tmr);
+    next.tmr=Array.from({length:3},()=>[...data]);
+  }
+  return next;
+}
+function seededRandom(seed) {
+  let a=seed>>>0;
+  return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
+}
+function positions(n,k,rng) {
+  const result=[];while(result.length<k){const p=Math.floor(rng()*n);if(!result.includes(p))result.push(p);}return result;
+}
+function runCampaign(lab) {
+  validateLab(lab);
+  const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
+  const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
+  const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
+  for(let trial=0;trial<lab.trials;trial++) {
+    const memory=resetMemory(baseline);
+    for(const bank of ['raw','ecc','tmr']) {
+      if(bank==='tmr'&&lab.pattern==='common') {
+        const bit=Math.floor(rng()*64);
+        for(const copy of positions(3,2,rng))memory.tmr[copy][bit]^=1;
+      } else {
+        const n=bank==='ecc'?72:bank==='tmr'?192:64;
+        for(const pos of positions(n,flips,rng)) {
+          if(bank==='tmr')memory.tmr[Math.floor(pos/64)][pos%64]^=1;else memory[bank][pos]^=1;
+        }
+      }
+    }
+    const outcomes=inspectLab(memory);
+    for(const bank of Object.keys(counts))counts[bank][outcomes[bank].status]++;
+  }
+  return {model:'bit-fault-campaign-v1',hex:lab.hex,pattern:lab.pattern,seed:lab.seed,trials:lab.trials,counts,scope:'각 시행마다 초기화, 구조별 같은 수의 물리 비트 반전, 궤도 발생률·위성 신뢰도 아님; TMR 투표기·불일치 검출기는 이상적'};
+}
+
+
+const SOURCES = [
+ {name:'SPENVIS · 환경·선량 모델',url:'https://www.spenvis.oma.be/models.php',note:'환경 및 차폐별 선량을 외부 계산한 뒤 정규화 표로 가져옵니다.'},
+ {name:'SPENVIS · 단일사건오류 계산',url:'https://www.spenvis.oma.be/help/models/longupset.html',note:'부품 반응자료와 환경 스펙트럼이 모두 필요합니다. V1.0은 외부 계산된 부품·환경별 오류율을 사용합니다.'},
+ {name:'NASA NEPP · 방사선 시험결과',url:'https://nepp.nasa.gov/radhome/papers/2022-Topper-NSREC-SEE-TID-Compendium-Paper-20220011454.pdf',note:'시험조건과 적용 범위를 함께 확인해야 합니다.'},
+ {name:'NASA · FPGA 오류정정과 복구',url:'https://nepp.nasa.gov/files/28706/NEPP-CP-2017-Berg-SEE-MAPLD-FPGA-Presentation-TN42793.pdf',note:'메모리 오류 수정과 기능 상태 복구를 구분합니다.'},
+ {name:'Frontgrade · UT8Q512E',url:'https://www.frontgrade.com/product/ut8q512e',note:'4Mb, 100 krad(Si) 제품 사양. 구매 로트 시험자료가 아닙니다.'},
+ {name:'Frontgrade · UT8ER512K32',url:'https://www.frontgrade.com/product/ut8er512k32',note:'16Mb, EDAC, 100 krad(Si) 사양표. 본문 표기와 시험조건을 데이터시트로 재확인해야 합니다.'},
+ {name:'Texas Instruments · SMV512K32-SP',url:'https://www.ti.com/lit/gpn/SMV512K32-SP',note:'16Mb SRAM. 300 krad(Si) 특성평가 사양이며 구매 등급·로트 조건 확인이 필요합니다.'}
+];
+const ORBITS = [
+ {id:'sso500',name:'Space-MaCS 검토궤도',altitudeKm:500,inclinationDeg:97.4,label:'500 km · SSO',note:'비교용 SSO 경사각 97.4° 가정. 실제 검증위성 궤도·시기는 확정자료로 교체하세요.'},
+ {id:'leo888',name:'K-LEO 후보 A',altitudeKm:888,inclinationDeg:42,label:'888 km · 42°',note:'검토용 후보 궤도'},
+ {id:'leo1280',name:'K-LEO 후보 B',altitudeKm:1280,inclinationDeg:42,label:'1,280 km · 42°',note:'검토용 후보 궤도'}
+];
+const demoSource='교육용 합성 시나리오 · 실제 궤도·부품 예측값 아님';
+const partBase={densityBits:16777216,voltage:3.3,lot:'미확인',temperatureC:85,tidBasis:'synthetic',tidSource:demoSource,source:demoSource,notes:'실제 판매 부품이 아닌 계산 흐름 확인용 가상 메모리입니다.',unitCostKrw:80000,powerW:0.4};
+function createProject(){
+ const parts=[
+  {...partBase,id:'demo-a',name:'예시 A · COTS SRAM',vendor:'가상 부품',grade:'COTS 예시',tidKrad:30},
+  {...partBase,id:'demo-b',name:'예시 B · 내방사선 SRAM',vendor:'가상 부품',grade:'내방사선 예시',tidKrad:100,unitCostKrw:600000,powerW:0.55},
+  {...partBase,id:'demo-c',name:'예시 C · 고내성 SRAM',vendor:'가상 부품',grade:'고내성 예시',tidKrad:300,unitCostKrw:2400000,powerW:0.7},
+  {...partBase,id:'ut8q512e',name:'UT8Q512E',vendor:'Frontgrade',grade:'QCOTS SRAM',densityBits:4194304,tidKrad:100,tidBasis:'spec',tidSource:SOURCES[4].url,source:SOURCES[4].url,unitCostKrw:null,powerW:null,temperatureC:null,notes:'제조사 제품 사양 100 krad(Si). SEL 관련 LET 표기는 시험조건 검토가 필요하며 SEU 곡선으로 사용하지 않습니다.'},
+  {...partBase,id:'ut8er512k32',name:'UT8ER512K32',vendor:'Frontgrade',grade:'EDAC SRAM',tidKrad:100,tidBasis:'spec',tidSource:SOURCES[5].url,source:SOURCES[5].url,unitCostKrw:null,powerW:null,temperatureC:null,notes:'제조사 사양표 100 krad(Si). 내장 EDAC 이후의 오류율과 원시 비트 오류율을 혼용하지 마세요. 홈페이지 오류율은 목표궤도 계산에 사용하지 않습니다.'},
+  {...partBase,id:'smv512k32',name:'SMV512K32-SP',vendor:'Texas Instruments',grade:'EDAC SRAM',tidKrad:300,tidBasis:'spec',tidSource:SOURCES[6].url,source:SOURCES[6].url,unitCostKrw:null,powerW:null,temperatureC:null,notes:'300 krad(Si)는 특성평가 사양입니다. 내장 EDAC가 있어 외부 오류정정 모델과 중복 계산하지 않도록 원시율/출력율을 확인해야 합니다.'}
+ ];
+ const rows=[];
+ const doses=[[7,4,2.8],[15,8,5.5],[32,18,12]];
+ const rates=[[5e-8,3e-8,2.4e-8],[1.1e-7,7e-8,5e-8],[2.4e-7,1.6e-7,1.1e-7]];
+ ORBITS.forEach((o,i)=>[1,2,3].forEach((shield,j)=>['demo-a','demo-b','demo-c'].forEach((part,k)=>rows.push({orbitId:o.id,altitudeKm:o.altitudeKm,inclinationDeg:o.inclinationDeg,shieldMm:shield,annualTidKrad:doses[i][j],partId:part,seuPerBitDay:rates[i][j]*[1,.06,.002][k],sefiPerDeviceDay:[.001,.0002,.00002][k]*(i+1),selPerDeviceDay:null,basis:'synthetic',source:demoSource,model:'합성 시나리오',epoch:'태양활동 조건을 가정한 교육용 자료',rateKind:'raw',notes:'표의 고도별 차이와 차폐 효과는 임의의 교육용 수치이며 실제 우주환경 분석 결과가 아닙니다.'}))));
+ return {schemaVersion:1,lab:createLab(),title:'K-LEO 메모리 적용성 비교',mission:{orbitId:'leo888',shieldMm:2,years:5,doseMargin:2,devicesPerBoard:2,satellites:256,boardsPerSatellite:1},selectedPartId:'demo-a',parts,environments:rows,protection:{mode:'ecc',wordBits:64,scrubSec:60,mbuFraction:.01,commonFraction:.01,functionalFraction:.1,recoverySec:5,coverage:.95},cost:{protectionPerBoard:20000,shieldPerBoard:30000,screeningPerDevice:10000,qualificationNre:30000000,engineeringNre:20000000,sparesPercent:10,protectionPowerW:.15},flight:{months:6,devices:2,events:0},taskStatus:{}};
+}
+const BASIS_LABELS={synthetic:'예시·가정',spec:'제조사 사양',test:'시험자료 입력',user:'사용자 자료'};
+
+
+
+const DAYS_PER_YEAR=365.25;
+const valid=(v)=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
+function atLeastTwoPoisson(mu){
+ if(!valid(mu))throw Error('유효한 사건 강도가 필요합니다.');
+ if(mu<1e-4)return mu*mu/2-mu*mu*mu/3+mu**4/8;
+ return Math.max(0,1-Math.exp(-mu)*(1+mu));
+}
+function findEnvironment(project,partId,orbitId=project.mission.orbitId){
+ const orbit=ORBITS.find(x=>x.id===orbitId);
+ const rows=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.shieldMm-project.mission.shieldMm)<1e-8&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
+ const exact=rows.find(x=>x.partId===partId);
+ const dose=exact||rows.find(x=>x.partId==='*')||rows[0];
+ return {dose: dose||null,rate:exact||null};
+}
+function softErrorModel(rate,bits,devices,p){
+ if(rate===null||rate===undefined)return null;
+ const logicalBits=bits*devices,raw=rate*logicalBits,replicas=p.mode==='tmr'?3:1;
+ const words=Math.ceil(logicalBits/p.wordBits),cycles=86400/p.scrubSec;
+ let uncorrectable=raw;
+ if(p.mode==='ecc'){
+  const mu=rate*(1-p.mbuFraction)*p.wordBits/cycles;
+  uncorrectable=words*cycles*atLeastTwoPoisson(mu)+raw*p.mbuFraction/2;
+ }
+ if(p.mode==='tmr'){
+  const q=-Math.expm1(-rate*(1-p.commonFraction)*p.wordBits/cycles);
+  uncorrectable=words*cycles*(3*q*q-2*q*q*q)+raw*p.commonFraction;
+ }
+ return {rawPerDay:raw,physicalRawPerDay:raw*replicas,uncorrectablePerDay:uncorrectable,replicas};
+}
+function evaluate(project,partId=project.selectedPartId,orbitId=project.mission.orbitId){
+ const part=project.parts.find(x=>x.id===partId);if(!part)throw Error('부품을 찾을 수 없습니다.');
+ const {dose,rate}=findEnvironment(project,partId,orbitId),m=project.mission,p=project.protection;
+ const missionDose=dose&&valid(dose.annualTidKrad)?dose.annualTidKrad*m.years:null;
+ const requiredDose=missionDose===null?null:missionDose*m.doseMargin;
+ const tidRatio=requiredDose===null||!valid(part.tidKrad)?null:requiredDose===0?Infinity:part.tidKrad/requiredDose;
+ const rawCompatible=rate?.rateKind==='raw';
+ const soft=rawCompatible?softErrorModel(rate.seuPerBitDay,part.densityBits,m.devicesPerBoard,p):null;
+ const replicas=p.mode==='tmr'?3:1;
+ const sefi=valid(rate?.sefiPerDeviceDay)?rate.sefiPerDeviceDay*m.devicesPerBoard*replicas:null;
+ const sel=valid(rate?.selPerDeviceDay)?rate.selPerDeviceDay*m.devicesPerBoard*replicas:null;
+ const functional=soft?soft.uncorrectablePerDay*p.functionalFraction+(sefi??0):null;
+ const recoverable=functional===null?null:functional*p.coverage;
+ const downtime=recoverable===null?null:86400*(-Math.expm1(-recoverable*p.recoverySec/86400));
+ const unhandled=functional===null?null:functional*(1-p.coverage);
+ const synthetic=part.tidBasis==='synthetic'||dose?.basis==='synthetic'||rate?.basis==='synthetic';
+ const reasons=[];
+ if(!dose)reasons.push('일치하는 궤도·차폐의 환경자료');
+ if(!valid(part.tidKrad))reasons.push('부품 TID 근거');
+ if(!rate||!valid(rate.seuPerBitDay))reasons.push('부품·궤도별 SEU 계산자료');
+ else if(!rawCompatible)reasons.push('원시 비트 SEU율 (현재 자료는 보호 후 출력율)');
+ if(sefi===null)reasons.push('SEFI 시험·발생률');
+ if(sel===null)reasons.push('SEL/파괴성 효과 검토');
+ if(!part.lot||part.lot==='미확인')reasons.push('구매 로트 및 시험조건');
+ return {part,dose,rate,missionDose,requiredDose,tidRatio,soft,sefi,sel,functional,recoverable,downtime,unhandled,synthetic,reasons,cost:costModel(project,part)};
+}
+function costModel(project,part,mode=project.protection.mode){
+ const {mission:m,cost:c}=project,replicas=mode==='tmr'?3:1;
+ const boards=Math.ceil(m.satellites*m.boardsPerSatellite*(1+c.sparesPercent/100));
+ const chips=m.devicesPerBoard*replicas;
+ const protection=mode==='none'?0:c.protectionPerBoard;
+ const bom=valid(part.unitCostKrw)?chips*(part.unitCostKrw+c.screeningPerDevice)+protection+c.shieldPerBoard:null;
+ const recurring=bom===null?null:bom*boards;
+ return {boards,chips,replicas,bom,recurring,nre:c.qualificationNre+c.engineeringNre,total:recurring===null?null:recurring+c.qualificationNre+c.engineeringNre,powerW:valid(part.powerW)?part.powerW*chips+(mode==='none'?0:c.protectionPowerW):null};
+}
+function zeroEventUpperRate(months,devices){
+ if(!valid(months)||months<=0||!Number.isInteger(devices)||devices<1)throw Error('양수 관측기간과 소자 수가 필요합니다.');
+ return -Math.log(.05)/(months*DAYS_PER_YEAR/12*devices);
+}
+function verificationTasks(result,project){
+ const r=result;
+ return [
+ {id:'env',category:'환경',title:'목표 궤도·차폐 환경자료 확정',priority:!r.dose||r.dose.basis==='synthetic'?'높음':'보통',detail:r.dose?.basis==='synthetic'?'현재 합성 환경자료입니다. 태양활동·분석기간·차폐 재질·형상을 명시한 SPENVIS 등의 결과로 교체하세요.':'자료의 궤도, 차폐, 시기 및 단위를 검토하고 원본 해석결과를 연결하세요.'},
+ {id:'tid',category:'TID',title:'구매 부품·로트의 누적선량 근거 확보',priority:r.tidRatio===null||r.tidRatio<1?'높음':'보통',detail:r.requiredDose===null?'목표 누적선량 계산자료가 없습니다.':`설계 여유계수를 적용한 요구량 ${r.requiredDose.toFixed(2)} krad(Si). 선량률·바이어스·온도·어닐링·기능 판정기준을 함께 확인하세요.`},
+ {id:'seu',category:'SEU',title:'소자별 SEU 반응과 궤도 오류율 연결',priority:r.soft?'보통':'높음',detail:'양성자 에너지별·중이온 LET별 반응자료와 목표 환경을 연결하세요. per bit / per device, 원시율 / EDAC 후 출력율을 확인하세요.'},
+ {id:'sel',category:'SEL·SEFI',title:'기능정지·래치업·파괴성 효과 분리 검증',priority:'높음',detail:'복구 가능한 기능정지와 영구 손상을 구분합니다. 최대 전압·온도, 전류 차단과 복구 시간을 시험하세요. 미관측은 면역성 판정이 아닙니다.'},
+ {id:'recovery',category:'보호설계',title:'오류정정과 기능 상태 복구 검증',priority:'보통',detail:'단일/다중 비트 오류를 주입해 검출, 복구 성공률, 상태 복원, 처리 지연을 측정하세요. TMR은 투표기·공유 클록과 공통원인을 별도 평가하세요.'},
+ {id:'flight',category:'우주검증',title:'Space-MaCS 검증결과의 적용 범위 정의',priority:'높음',detail:'500 km SSO와 목표궤도의 입자 스펙트럼·선량·열조건이 다릅니다. 검증기간 비례 환산만으로 목표 임무를 인증하지 않습니다.'},
+ {id:'lot',category:'추적성',title:'부품 버전·로트·자료 출처 고정',priority:r.part.lot==='미확인'?'높음':'보통',detail:'시험품과 양산품의 제조공정·리비전·로트·패키지 및 동작조건의 일치 여부를 확인하고 변경관리를 기록하세요.'}
+ ].map(t=>({...t,status:project.taskStatus[t.id]||'계획'}));
+}
+
+function number(v,path,min=0,max=1e15,nullable=false){if(nullable&&v===null)return;if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error(`${path}: ${min}~${max} 범위의 숫자가 필요합니다.`);}
+function str(v,path,max=2000){if(typeof v!=='string'||!v.trim()||v.length>max)throw Error(`${path}: 비어 있지 않은 텍스트가 필요합니다.`);}
+function validateProject(p){
+ if(!p||p.schemaVersion!==1)throw Error('schemaVersion 1 프로젝트 파일이 필요합니다.');
+ if(p.lab!==undefined)validateLab(p.lab);
+ str(p.title,'시나리오 제목',120);
+ if(!Array.isArray(p.parts)||p.parts.length<1||p.parts.length>100)throw Error('부품은 1~100개까지 지원합니다.');
+ if(!Array.isArray(p.environments)||p.environments.length>3000)throw Error('환경자료는 최대 3,000행입니다.');
+ const ids=new Set();
+ p.parts.forEach(x=>{str(x.id,'부품 ID',80);if(ids.has(x.id))throw Error('부품 ID가 중복됩니다.');ids.add(x.id);str(x.name,'부품명',120);str(x.vendor,'제조사',120);str(x.grade,'분류',120);str(x.source,'부품 출처');str(x.tidSource,'TID 출처');str(x.notes,'부품 설명');str(x.lot,'로트',200);if(!['synthetic','spec','test','user'].includes(x.tidBasis))throw Error('부품 근거 유형이 잘못되었습니다.');number(x.densityBits,'메모리 비트 수',1,1e13);if(!Number.isInteger(x.densityBits))throw Error('메모리 비트 수는 정수입니다.');number(x.tidKrad,'TID',0,1e7,true);number(x.unitCostKrw,'단가',0,1e12,true);number(x.powerW,'전력',0,1e5,true);});
+ if(!ids.has(p.selectedPartId))throw Error('선택 부품 ID를 확인하세요.');
+ const m=p.mission;if(!m||!ORBITS.some(o=>o.id===m.orbitId))throw Error('궤도 ID를 확인하세요.');
+ number(m.shieldMm,'차폐 두께',.01,100);number(m.years,'임무 수명',.01,50);number(m.doseMargin,'선량 여유계수',1,20);number(m.devicesPerBoard,'장비당 소자 수',1,10000);number(m.satellites,'위성 수',1,100000);number(m.boardsPerSatellite,'위성당 장비 수',1,1000);
+ for(const k of ['devicesPerBoard','satellites','boardsPerSatellite'])if(!Number.isInteger(m[k]))throw Error('장비·위성·소자 수는 정수여야 합니다.');
+ const q=p.protection;if(!q||!['none','ecc','tmr'].includes(q.mode))throw Error('보호설계 모드를 확인하세요.');
+ number(q.wordBits,'워드 길이',8,4096);if(!Number.isInteger(q.wordBits))throw Error('워드 길이는 정수입니다.');number(q.scrubSec,'복구 주기',.01,86400);number(q.recoverySec,'재시작 시간',0,86400);for(const k of ['mbuFraction','commonFraction','functionalFraction','coverage'])number(q[k],k,0,1);
+ const c=p.cost;if(!c)throw Error('비용 입력이 필요합니다.');for(const k of ['protectionPerBoard','shieldPerBoard','screeningPerDevice','qualificationNre','engineeringNre','protectionPowerW'])number(c[k],k,0,1e15);number(c.sparesPercent,'예비품 비율',0,200);
+ if(!p.flight)throw Error('우주검증 입력이 필요합니다.');number(p.flight.months,'검증 개월',.01,120);number(p.flight.devices,'검증 소자 수',1,100000);number(p.flight.events,'관측 사건',0,1e9);if(!Number.isInteger(p.flight.devices)||!Number.isInteger(p.flight.events))throw Error('관측 소자와 사건 수는 정수여야 합니다.');
+ if(!p.taskStatus||typeof p.taskStatus!=='object'||Array.isArray(p.taskStatus))throw Error('검증 상태 형식 오류');for(const v of Object.values(p.taskStatus))if(!['계획','진행','완료'].includes(v))throw Error('검증 상태 값 오류');
+ const keys=new Set();p.environments.forEach(x=>{if(!ORBITS.some(o=>o.id===x.orbitId))throw Error('환경자료 궤도 ID 오류');if(x.partId!=='*'&&!ids.has(x.partId))throw Error(`환경자료에 없는 부품 ID: ${x.partId}`);number(x.altitudeKm,'고도',100,3000);number(x.inclinationDeg,'경사각',0,180);number(x.shieldMm,'차폐',.01,100);number(x.annualTidKrad,'연간 선량',0,1e7,true);for(const k of ['seuPerBitDay','sefiPerDeviceDay','selPerDeviceDay'])number(x[k],k,0,1e6,true);if(!['synthetic','user','test'].includes(x.basis))throw Error('환경 근거 유형 오류');if(!['raw','effective'].includes(x.rateKind))throw Error('rate_kind는 raw 또는 effective여야 합니다.');for(const k of ['source','model','epoch'])str(x[k],k);const key=[x.orbitId,x.shieldMm,x.partId].join('|');if(keys.has(key))throw Error('같은 궤도·차폐·부품의 자료가 중복됩니다.');keys.add(key);});
+ // Shared environmental dose must agree across device-specific rows.
+ const doses=new Map();p.environments.forEach(x=>{const k=[x.orbitId,x.shieldMm].join('|');if(x.annualTidKrad!==null){if(doses.has(k)&&Math.abs(doses.get(k)-x.annualTidKrad)>1e-8)throw Error('동일 궤도·차폐의 연간 선량이 부품별로 다릅니다.');doses.set(k,x.annualTidKrad);}});
+ return p;
+}
+function parseCsv(text){
+ if(text.length>2e6)throw Error('CSV는 2 MB 이하로 올려주세요.');
+ const rows=[];let row=[],field='',quote=false;
+ text=text.replace(/^\uFEFF/,'');
+ for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){field+='"';i++;}else quote=!quote;}else if(c===','&&!quote){row.push(field);field='';}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(s=>s.trim()))rows.push(row);row=[];field='';}else field+=c;}
+ if(quote)throw Error('CSV 따옴표가 닫히지 않았습니다.');row.push(field);if(row.some(s=>s.trim()))rows.push(row);return rows;
+}
+const columns=['orbit_id','altitude_km','inclination_deg','shield_mm','annual_tid_krad_si','part_id','seu_per_bit_day','sefi_per_device_day','sel_per_device_day','basis','source','model','epoch','rate_kind'];
+const CSV_COLUMNS=columns;
+function importEnvironmentCsv(project,text){
+ const [headers,...rows]=parseCsv(text);if(!headers)throw Error('빈 CSV입니다.');for(const c of columns)if(!headers.includes(c))throw Error(`필수 열 없음: ${c}`);
+ const toNumber=s=>s.trim()===''?null:Number(s);
+ const result=rows.map((r,i)=>{if(r.length!==headers.length)throw Error(`CSV ${i+2}행 열 수가 다릅니다.`);const v=Object.fromEntries(headers.map((h,j)=>[h,r[j].trim()]));return {orbitId:v.orbit_id,altitudeKm:toNumber(v.altitude_km),inclinationDeg:toNumber(v.inclination_deg),shieldMm:toNumber(v.shield_mm),annualTidKrad:toNumber(v.annual_tid_krad_si),partId:v.part_id,seuPerBitDay:toNumber(v.seu_per_bit_day),sefiPerDeviceDay:toNumber(v.sefi_per_device_day),selPerDeviceDay:toNumber(v.sel_per_device_day),basis:v.basis,source:v.source,model:v.model,epoch:v.epoch,rateKind:v.rate_kind,notes:'CSV에서 가져온 자료'};});
+ if(!result.length)throw Error('가져올 자료 행이 없습니다.');
+ const p=structuredClone(project);p.environments=result;validateProject(p);return p;
+}
+function csvCell(v){let s=v===null||v===undefined?'':String(v);if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
+function toCsv(rows){return '\uFEFF'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');}
+function environmentCsv(project){return toCsv([columns,...project.environments.map(x=>[x.orbitId,x.altitudeKm,x.inclinationDeg,x.shieldMm,x.annualTidKrad,x.partId,x.seuPerBitDay,x.sefiPerDeviceDay,x.selPerDeviceDay,x.basis,x.source,x.model,x.epoch,x.rateKind])]);}
+
+
+function labPage(lab,campaign,ui) {
+  const {card,btn,badge,table,fmt,h,notice,metric}=ui;
+  const outcomes=inspectLab(lab),current=outcomes[lab.view],golden=hexToBits(lab.hex),encoded=encode64(golden);
+  const statuses={correct:['정상 데이터 확보','green'],detected:['검출 · 출력 사용 중단','amber'],silent:['미검출 데이터 손상','red']};
+  const stateBadge=o=>badge(...statuses[o.status]);
+  function bitGrid(bank,values,reference,copy=0) {
+    return `<div class="bit-grid" role="group" aria-label="${bank==='tmr'?'복제본 '+['A','B','C'][copy]:ARCHITECTURES[bank]} 비트 조작">${values.map((b,i)=>{
+      const parity=bank==='ecc'&&(PARITY_POSITIONS.includes(i+1)||i===71);
+      const label=bank==='ecc'?(i===71?'P전체':parity?'P'+(i+1):'D'+DATA_POSITIONS.indexOf(i+1)):'D'+i;
+      const changed=b!==reference[i];
+      return `<button type="button" class="bit ${parity?'parity':''} ${changed?'flipped':''}" data-lab-bit="${i}" data-bank="${bank}" data-copy="${copy}" aria-label="${bank==='tmr'?'복제본 '+['A','B','C'][copy]+' ':''}${label}, 현재 ${b}, ${changed?'초기값과 다름':'초기값과 같음'}, 누르면 반전" aria-pressed="${changed}"><span>${label}</span><b>${b}</b></button>`;
+    }).join('')}</div>`;
+  }
+  const memory=lab.view==='tmr'?lab.tmr.map((a,i)=>`<div class="replica-head">복제본 ${['A','B','C'][i]} <span>64 bit</span></div>${bitGrid('tmr',a,golden,i)}`).join(''):bitGrid(lab.view,lab[lab.view],lab.view==='ecc'?encoded:golden);
+  const circuitFlag=lab.view==='ecc'?{clean:'오류 신호 없음',corrected:`${current.correctedPosition}번 비트 정정`,uncorrectable:'정정 불가 신호'}[current.flag]:lab.view==='tmr'?`복제본 불일치 ${current.disagreementBits}개 비트`:'오류 검출 신호 없음';
+  const comparison=Object.entries(outcomes).map(([k,o])=>`<tr class="${k===lab.view?'selected':''}"><td>${h(ARCHITECTURES[k])}</td><td class="number">${o.physicalBits}</td><td>${stateBadge(o)}</td><td class="number">${o.mismatch}</td></tr>`);
+  const campaignRows=campaign?Object.entries(campaign.counts).map(([key,c])=>`<tr><td>${h(ARCHITECTURES[key])}</td><td class="number">${fmt(c.correct,0)}</td><td class="number">${fmt(c.detected,0)}</td><td class="number">${fmt(c.silent,0)}</td><td class="number">${fmt(c.correct/campaign.trials*100)}%</td></tr>`):[];
+  const campaignBars=campaign?Object.entries(campaign.counts).map(([key,c])=>`<div class="campaign-bar-row"><strong>${h(ARCHITECTURES[key])}</strong><div class="campaign-bar" role="img" aria-label="${h(ARCHITECTURES[key])}, 정상 ${c.correct}, 검출 ${c.detected}, 미검출 손상 ${c.silent}">${['correct','detected','silent'].map(k=>`<span class="${k}" style="width:${c[k]/campaign.trials*100}%"></span>`).join('')}</div></div>`).join(''):'';
+  return `${notice('<strong>비트 단위 설계 실험</strong> 지정한 오류에 대한 회로의 동작을 계산합니다. 궤도별 방사선 발생률은 분석 대시보드에서 별도로 비교하세요.','info')}
+    <div class="lab-toolbar card"><div class="lab-data-field"><label for="lab-hex">기준 데이터 · 64 bit / 16진수</label><form id="lab-data-form"><input id="lab-hex" name="hex" value="${h(lab.hex)}" maxlength="16" pattern="[0-9a-fA-F]{16}" required spellcheck="false" autocomplete="off"><button class="btn" type="submit">기록</button></form></div><div class="lab-presets"><span class="small text-muted">오류 예시 · 각 예시는 초기값에서 시작</span><div class="button-row">${btn('1-bit','lab-single')}${btn('한 복제본 2-bit','lab-double')}${btn('두 복제본 동시','lab-common')}${btn('3-bit 취약 사례','lab-triple')}</div></div></div>
+    <div class="lab-workspace">
+      ${card('메모리 비트를 눌러 오류 주입',`<div class="card-body"><div class="segmented lab-modes" aria-label="설계 구조 선택">${Object.entries(ARCHITECTURES).map(([key,name])=>`<button type="button" data-lab-view="${key}" class="${lab.view===key?'active':''}" aria-pressed="${lab.view===key}">${h(name)}</button>`).join('')}</div><div class="bit-legend"><span>데이터</span><span class="legend-parity">검사 비트</span><span class="legend-flipped">초기값과 다른 비트</span></div>${memory}<div class="button-row spaced"><button type="button" class="btn primary" data-action="lab-scrub" ${lab.view==='raw'?'disabled':''}>${lab.view==='tmr'?'다수결로 재동기화':'정정값으로 스크러빙'}</button>${btn('전체 초기화','lab-clear')}</div><p class="input-note">D0는 최하위 비트입니다. 읽기 결과는 즉시 계산되며, 스크러빙을 눌러야 저장 비트가 바뀝니다. 원본 기준값은 결과 채점에만 사용합니다.</p></div>`)}
+      <section class="lab-readout" aria-live="polite" aria-label="실시간 읽기 결과"><p class="eyebrow">READOUT / ${h(lab.view.toUpperCase())}</p><h2>읽기 결과</h2><div class="readout-status">${stateBadge(current)}</div><label>기준 데이터</label><p class="hex-value">${h(lab.hex)}</p><label>회로 계산 데이터</label><p class="hex-value ${current.mismatch?'damaged':''}">${h(current.hex)}</p><div class="readout-line"><span>회로가 내보낸 신호</span><strong>${h(circuitFlag)}</strong></div><div class="readout-line"><span>원본과 다른 데이터</span><strong>${current.mismatch} / 64 bit</strong></div>${lab.view==='ecc'?`<div class="readout-line"><span>신드롬 / 전체 홀수 패리티</span><strong>${current.syndrome} / ${current.odd}</strong></div>`:''}<p class="readout-note">‘미검출 손상’은 원본을 아는 실험기가 확인한 결과입니다. 실제 회로는 원본과 비교할 수 없습니다.${lab.view==='tmr'?' 잘못된 다수결 값을 재동기화하면 손상이 세 복제본으로 전파됩니다.':''}${current.status==='detected'?' 표시된 데이터는 사용을 중단하고 상위 시스템에서 복구해야 합니다.':''}</p></section>
+    </div>
+    <div class="spaced">${card('같은 기준 데이터, 세 가지 보호 구조',table(['설계','저장 비트','읽기 판정','원본 대비 오류 bit'],comparison,'1-bit 예시는 A 복제본에만 주입합니다. 2-bit 예시는 A의 D0·D1, 두 복제본 동시는 A·B의 D0, 3-bit 예시는 A·B·C의 D0를 반전합니다. 보호 없음·ECC에는 각각 D0부터 1·2·3개 데이터 비트를 반전합니다.'))}</div>
+    <div class="grid-equal">
+      ${card('반복 오류 주입 실험',`<div class="card-body"><div class="field-grid"><label class="full"><span>오류 패턴</span><select data-lab-config="pattern">${Object.entries(PATTERNS).map(([key,value])=>`<option value="${key}" ${lab.pattern===key?'selected':''}>${h(value)}</option>`).join('')}</select></label><label><span>반복 횟수</span><input type="number" data-lab-config="trials" min="1" max="20000" step="1" value="${lab.trials}"></label><label><span>난수 시드</span><input type="number" data-lab-config="seed" min="0" max="4294967295" step="1" value="${lab.seed}"></label></div><div class="button-row spaced">${btn('반복 실험 실행','lab-run','arrow','primary')}${campaign?btn('실험 결과 CSV','lab-csv','download'):''}</div><p class="input-note">매 시행마다 정상 상태에서 시작해 구조별 동일 개수의 서로 다른 물리 비트를 반전합니다. 시드·입력이 같으면 결과를 재현할 수 있습니다. 위의 수동 주입 상태는 사용하지 않습니다.</p></div>`)}
+      ${card('오류 정정과 저장공간',`<div class="card-body explain"><p><strong>SECDED:</strong> 데이터 64 bit + 검사 8 bit. 모든 단일 비트 오류를 정정하고 모든 이중 비트 오류를 검출하는 확장 해밍 부호입니다. 3-bit 이상에서는 오정정·미검출이 가능합니다.</p><p><strong>TMR:</strong> 데이터 64 bit × 3 복제본. 각 비트의 다수결과 복제본 불일치 신호를 계산합니다. 투표기·클록·리셋 자체 고장은 포함하지 않습니다.</p><p><strong>공간 오버헤드:</strong> SECDED 12.5%, TMR 200%. 저장 비트 수의 증가이며 전체 칩 면적·전력 증가율이 아닙니다.</p><p><a href="https://ntrs.nasa.gov/citations/20180006778" target="_blank" rel="noopener noreferrer">NASA · FPGA 보호설계 참고자료 ↗</a></p></div>`)}
+    </div>
+    <div class="spaced">${card('반복 실험 결과',campaign?`<div class="card-body"><div class="pill-row">${badge(PATTERNS[campaign.pattern],'blue')}${badge(fmt(campaign.trials,0)+'회')}${badge('시드 '+campaign.seed)}${badge(campaign.hex)}</div><div class="campaign-legend"><span class="correct">정상 데이터</span><span class="detected">검출·중단 필요</span><span class="silent">미검출 손상</span></div>${campaignBars}</div>${table(['설계','정상 데이터','검출·중단 필요','미검출 손상','정상 데이터 비율'],campaignRows)}<p class="table-note">이 값은 선택한 오류 패턴을 주입했을 때의 결과입니다. 동일한 방사선 노출에 대한 발생확률이나 위성 신뢰도가 아닙니다. 독립 패턴은 전체 물리 비트에서 균등 추출하며, 상관 패턴은 TMR 두 복제본의 같은 비트에 주입합니다. 보호 없음·ECC의 상관 패턴은 서로 다른 2-bit 주입입니다. 현재 실험은 시행 사이 시간·스크러빙 주기를 모델링하지 않습니다.</p>`:'<div class="empty"><strong>오류 패턴을 고르고 실험을 실행하세요</strong>정상 데이터 확보, 검출된 손상, 미검출 손상을 구분해 비교합니다.</div>')}</div>
+    <div class="spaced">${card('K-LEO 설계 검토에 연결',`<div class="card-body explain"><p>이 실험으로 정정·검출·복구 동작을 확인한 뒤, 목표궤도의 부품별 오류율과 보호·복구 설계 가정을 함께 검토하세요. 반복 실험의 정상 데이터 비율을 궤도 오류율에 직접 곱하지 않습니다. 실제 오류 위치의 상관관계와 동작조건이 다를 수 있습니다.</p><div class="button-row spaced">${btn('궤도·부품 비교','go-overview','arrow')}${btn('보호·복구율 검토','go-protection','shield')}${btn('검증계획','go-verification','check')}</div></div>`)}</div>`;
+}
+
+
+
+
+
+let project=createProject(),page='lab',toastTimer,campaign=null;
+const app=document.querySelector('#app');
+const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
+const fmt=(v,d=2)=>v===null||v===undefined?'자료 부족':v===Infinity?'∞':v!==0&&Math.abs(v)<.001?v.toExponential(2):new Intl.NumberFormat('ko-KR',{maximumFractionDigits:d}).format(v);
+const won=v=>v===null?'견적 필요':v>=1e8?`${fmt(v/1e8)}억`:v>=1e4?`${fmt(v/1e4)}만`:fmt(v);
+const modeLabel={none:'보호 없음',ecc:'ECC + 스크러빙',tmr:'TMR + 재동기화'};
+const icons={chip:'M8 8h8v8H8zM9 3v5m6-5v5M9 16v5m6-5v5M3 9h5m-5 6h5m8-6h5m-5 6h5',chart:'M4 4v16h17M8 15v-4m5 4V7m5 8v-6',layers:'m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',shield:'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Zm-4 9 3 3 5-6',check:'M9 5h11M9 12h11M9 19h11M3 5h1M3 12h1M3 19h1',cost:'M4 5h16v14H4zM4 9h16M8 13h2m4 0h2M8 16h2m4 0h2',data:'M5 3h10l4 4v14H5zM14 3v5h5M8 12h8m-8 4h8',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',upload:'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',info:'M12 8h.01M12 11v5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',arrow:'M5 12h14m-6-6 6 6-6 6',plus:'M12 4v16M4 12h16',print:'M7 8V3h10v5M6 17H3V9h18v8h-3M7 14h10v7H7z',book:'M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15'};
+const icon=(name)=>`<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[name]||icons.chip}"/></svg>`;
+const badge=(text,type='')=>`<span class="badge ${type}">${h(text)}</span>`;
+const sourceLink=s=>/^https?:\/\//i.test(s)?`<a href="${h(s)}" target="_blank" rel="noopener noreferrer">원문 자료 ↗</a>`:h(s);
+const btn=(text,action,ico='',cls='')=>`<button type="button" class="btn ${cls}" data-action="${action}">${ico?icon(ico):''}${h(text)}</button>`;
+const selected=()=>project.parts.find(p=>p.id===project.selectedPartId);
+const getPath=(path)=>path.split('.').reduce((o,k)=>o[k],project);
+function input(path,label,opts={}){const value=opts.value!==undefined?opts.value:getPath(path);return `<label><span>${h(label)}</span><input data-path="${h(path)}" aria-label="${h(label)}" type="${opts.type||'number'}" value="${h(value===null?'':value)}" ${opts.min!==undefined?`min="${opts.min}"`:''} ${opts.max!==undefined?`max="${opts.max}"`:''} step="${opts.step||'any'}" ${opts.nullable?'data-nullable="true"':''} ${opts.percent?'data-percent="true"':''}>${opts.help?`<small class="help">${h(opts.help)}</small>`:''}</label>`;}
+function partInput(key,label,opts={}){const p=selected();return input(`part.${key}`,label,{...opts,value:opts.value!==undefined?opts.value:p[key]});}
+function selectPath(path,label,options){return `<label><span>${h(label)}</span><select data-path="${h(path)}" data-string="true" aria-label="${h(label)}">${options.map(([value,text])=>`<option value="${h(value)}" ${getPath(path)===value?'selected':''}>${h(text)}</option>`).join('')}</select></label>`;}
+function partPicker(){return `<select class="part-select" data-path="selectedPartId" data-string="true" aria-label="평가 부품 선택">${project.parts.map(p=>`<option value="${h(p.id)}" ${p.id===project.selectedPartId?'selected':''}>${h(p.name)}</option>`).join('')}</select>`;}
+function card(title,body,extra='',sub=''){return `<section class="card"><div class="card-head"><div><h2>${title}</h2>${sub?`<p class="card-sub">${sub}</p>`:''}</div>${extra}</div>${body}</section>`;}
+function metric(label,value,unit,foot,cls=''){return `<div class="card metric"><div class="metric-label">${h(label)}</div><div class="metric-value ${cls}">${h(value)}${unit?`<small>${h(unit)}</small>`:''}</div><div class="metric-foot">${h(foot)}</div></div>`;}
+function notice(text,type=''){return `<div class="notice ${type}">${icon('info')}<p>${text}</p></div>`;}
+function kv(label,value){return `<div class="kv"><span>${h(label)}</span><b>${value}</b></div>`;}
+function table(headers,rows,note=''){return `<div class="table-wrap"><table><thead><tr>${headers.map(x=>`<th scope="col">${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>${note?`<p class="table-note">${note}</p>`:''}`;}
+function controls(){return `<section class="card controls" aria-label="공통 임무 조건">${selectPath('mission.orbitId','목표 궤도',ORBITS.map(o=>[o.id,o.label]))}${input('mission.years','임무 수명 (년)',{min:.01,max:50,step:.5})}${input('mission.shieldMm','Al 등가 차폐 (mm)',{min:.01,max:100,step:.5,help:'일치하는 차폐 자료만 사용'})}${input('mission.doseMargin','선량 설계 여유계수',{min:1,max:20,step:.5})}</section>`;}
+function evidenceNotice(r){if(r.synthetic)return notice('<strong>예시 데이터로 분석 중</strong> 환경 수치와 가상 부품은 계산 흐름을 확인하기 위한 합성 자료입니다. 실제 궤도 예측·부품 선정에는 출처가 있는 환경·시험자료를 가져오세요.');return notice('<strong>입력자료 기반 예비 평가</strong> 수치 여유와 자료 공백을 함께 검토하세요. 최종 적용 판단에는 로트·동작조건·파괴성 효과의 근거가 필요합니다.','info');}
+
+const pages={lab:['반도체 설계 실험실','BIT-LEVEL DESIGN LAB','비트를 직접 뒤집고, 오류 정정·검출·복구 동작을 비교합니다.','layers'],overview:['분석 대시보드','MISSION OVERVIEW','목표 궤도에서의 선량·오류·비용을 함께 비교합니다.','chart'],parts:['부품·시험자료','COMPONENT EVIDENCE','제품 사양, 시험자료와 사용자 가정을 구분해 관리합니다.','chip'],protection:['보호·복구 설계','FAULT MITIGATION','오류정정·복구 가정을 바꾸고 잔존 사건과 중단시간을 비교합니다.','shield'],verification:['검증계획','VERIFICATION PLAN','부품의 근거를 정리하고 Space-MaCS 이후의 검증 공백을 확인합니다.','check'],cost:['비용·양산 비교','COST COMPARISON','소자·보호설계·차폐·시험·개발비를 동일 물량에서 비교합니다.','cost'],data:['자료·계산방법','DATA & METHODS','분석자료를 가져오고 계산 가정과 출처를 확인합니다.','data']};
+function render(){
+ project.lab??=createLab();validateProject(project);const r=evaluate(project),p=pages[page];
+ app.innerHTML=`<div class="shell"><aside class="sidebar"><div class="brand">${icon('chip')}<div><strong>K-LEO <span style="color:#5be3b6">CHIP</span></strong><small>SPACE ELECTRONICS LAB</small></div></div><div class="nav-caption">분석 워크스페이스</div><nav class="nav" aria-label="분석 메뉴">${Object.entries(pages).map(([id,x])=>`<button type="button" data-page="${id}" class="${id===page?'active':''}" ${id===page?'aria-current="page"':''}>${icon(x[3])}${x[0]}</button>`).join('')}</nav><div class="side-bottom"><p>궤도 조건부터<br>반도체 적용·검증까지</p><span class="version">V1.1.0 · DESIGN LAB</span></div></aside><div class="main-wrap"><header class="topbar"><div class="crumb">K-LEO / <strong>우주반도체 적용성</strong></div><div class="top-actions">${btn('불러오기','load','upload')}${btn('시나리오 저장','save','download')}${btn('보고서 인쇄','print','print')}</div></header><main class="main" id="main"><div class="page-heading"><div><p class="eyebrow">${p[1]}</p><h1>${p[0]}</h1><p class="subheading">${p[2]}</p></div>${page==='lab'?(campaign?btn('실험 CSV','lab-csv','download'):btn('궤도별 분석','go-overview','arrow')):btn('결과 CSV','results','download')}</div>${page==='lab'?'':controls()+evidenceNotice(r)}${({lab:()=>labPage(project.lab,campaign,{card,btn,badge,table,fmt,h,notice,metric}),overview:overview,parts:partsPage,protection:protectionPage,verification:verificationPage,cost:costPage,data:dataPage}[page])(r)}<footer class="footer"><span>K-LEO CHIP · ${h(project.title)}</span><span>메모리 설계·적용성 · V1.1.0 · 독립 실행본</span></footer></main></div></div>`;
+}
+function doseChart(){
+ const rs=ORBITS.map(o=>evaluate(project,project.selectedPartId,o.id));const limit=selected().tidKrad===null?null:selected().tidKrad/project.mission.doseMargin;
+ const vals=rs.map(r=>r.missionDose).filter(v=>v!==null);if(!vals.length)return '<div class="empty"><strong>환경자료가 필요합니다</strong>목표 궤도·차폐 조건에 맞는 연간 선량을 가져오세요.</div>';
+ const max=Math.max(...vals,limit||0,1)*1.15,w=760,ht=245,left=55,right=25,top=20,bottom=38,plotW=w-left-right,plotH=ht-top-bottom;
+ const x=t=>left+plotW*t/project.mission.years,y=d=>ht-bottom-d/max*plotH,colors=['#7a60af','#087f76','#4772c6'];
+ const grid=Array.from({length:5},(_,i)=>{const v=max*i/4;return `<line x1="${left}" x2="${w-right}" y1="${y(v)}" y2="${y(v)}" stroke="#e7edf1"/><text x="${left-10}" y="${y(v)+4}" text-anchor="end">${fmt(v,1)}</text>`;}).join('');
+ const xs=Array.from({length:6},(_,i)=>{const t=project.mission.years*i/5;return `<text x="${x(t)}" y="${ht-12}" text-anchor="middle">${fmt(t,1)}년</text>`;}).join('');
+ const lines=rs.map((r,i)=>r.missionDose===null?'':`<path d="M ${x(0)} ${y(0)} L ${x(project.mission.years)} ${y(r.missionDose)}" stroke="${colors[i]}" stroke-width="${ORBITS[i].id===project.mission.orbitId?3.5:2}" fill="none"/><circle cx="${x(project.mission.years)}" cy="${y(r.missionDose)}" r="4" fill="${colors[i]}"/>`).join('');
+ return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${w} ${ht}" role="img" aria-label="임무기간에 비례한 궤도별 누적선량 비교. 정확한 값은 아래 비교표에 있습니다."><text x="${left}" y="12" class="axis-title">krad(Si)</text>${grid}${xs}${limit===null?'':`<line x1="${left}" x2="${w-right}" y1="${y(limit)}" y2="${y(limit)}" stroke="#bf8235" stroke-dasharray="6 4"/><text x="${left+12}" y="${Math.max(18,y(limit)-8)}" style="fill:#946428">부품 TID ÷ 여유계수</text>`}${lines}</svg></div><p class="chart-caption">연간 평균 선량을 임무기간에 비례 적용한 비교입니다. 태양활동의 시간 변화는 계산하지 않습니다.</p>`;
+}
+function orbitRows(){return ORBITS.map(o=>{const r=evaluate(project,project.selectedPartId,o.id);return `<tr class="${o.id===project.mission.orbitId?'selected':''}"><td><button class="btn quiet" data-orbit="${o.id}" aria-label="${h(o.label)} 선택" style="padding:0;min-height:32px">${h(o.label)}${o.id===project.mission.orbitId?'<span class="selected-tag">선택</span>':''}</button><span class="secondary">${h(o.name)}</span></td><td class="number">${fmt(r.missionDose)}</td><td class="number">${fmt(r.requiredDose)}</td><td class="number">${fmt(r.tidRatio)}${r.tidRatio===null?'':' ×'}</td><td class="number">${fmt(r.soft?.rawPerDay)}</td><td>${badge(r.synthetic?'예시':r.dose?'입력자료':'자료 부족',r.synthetic?'amber':r.dose?'blue':'')}</td></tr>`;});}
+function overview(r){
+ const part=r.part;
+ return `<div class="metrics">${metric('임무 누적선량',fmt(r.missionDose),r.missionDose===null?'':'krad(Si)',`${project.mission.years}년 · ${project.mission.shieldMm} mm Al 등가`)}${metric('TID 수치 여유',fmt(r.tidRatio),r.tidRatio===null?'':'배','부품 TID / 여유계수 적용 요구량',r.tidRatio!==null&&r.tidRatio<1?'text-red':'')}${metric('원시 비트 오류',fmt(r.soft?.rawPerDay),r.soft?'회/일':'',`논리 장비 1대 · 소자 ${project.mission.devicesPerBoard}개 기준`)}${metric('제작·검증 비용',won(r.cost.total),r.cost.total===null?'':'원',`예비품 포함 장비 ${fmt(r.cost.boards,0)}대 · 가정 비용`)}</div><div class="grid-two">${card('누적선량 비교',doseChart(),`<div class="legend"><span><i class="swatch" style="background:#7a60af"></i>500 km</span><span><i class="swatch"></i>888 km</span><span><i class="swatch" style="background:#4772c6"></i>1,280 km</span></div>`)}${card('평가 중인 반도체',`<div class="card-body"><div class="pill-row">${badge(part.grade)}${badge(BASIS_LABELS[part.tidBasis],part.tidBasis==='synthetic'?'amber':'blue')}</div>${partPicker()}<p class="part-description">${h(part.vendor)} · ${fmt(part.densityBits/1048576)} Mibit</p>${kv('TID 근거',`${fmt(part.tidKrad)} krad(Si)`)}${kv('보호설계',h(modeLabel[project.protection.mode]))}${kv('추가 확인 항목',`${r.reasons.length}개`)}<div class="spaced">${btn('부품 자료 검토','go-parts','arrow')}</div></div>`)}</div><div class="spaced">${card('같은 부품, 세 가지 임무환경',table(['궤도','누적선량<br>krad(Si)','요구선량<br>krad(Si)','TID 여유','원시 오류<br>회/일','환경 근거'],orbitRows(),'TID 여유가 1배 이상이어도 SEE·구매 로트·동작조건을 별도 검증해야 합니다. 오류 횟수는 위성 고장확률이 아닙니다.'))}</div><div class="grid-equal">${card('검증이 필요한 근거',`<div class="card-body"><div class="pill-row">${r.reasons.length?r.reasons.map(x=>badge(x,'amber')).join(''):badge('입력 항목 확보 · 내용 검토 필요','blue')}</div><p class="input-note">${h(part.notes)}</p><div class="spaced">${btn('검증계획 보기','go-verification','arrow')}</div></div>`)}${card('현재 분석조건',`<div class="card-body">${kv('환경 모델',h(r.dose?.model||'자료 부족'))}${kv('시기·태양활동',h(r.dose?.epoch||'자료 부족'))}${kv('환경 출처',sourceLink(r.dose?.source||'자료 부족'))}${kv('부품 출처',sourceLink(part.tidSource))}</div>`)}</div>`;
+}
+function partsPage(r){
+ const rows=project.parts.map(p=>{const ev=evaluate(project,p.id);return `<tr class="${p.id===project.selectedPartId?'selected':''}"><td><button class="btn quiet" data-part="${h(p.id)}" style="padding:0;text-align:left;white-space:normal">${h(p.name)}</button><span class="secondary">${h(p.vendor)} · ${h(p.id)}</span></td><td>${h(p.grade)}</td><td class="number">${fmt(p.densityBits/1048576)}</td><td class="number">${fmt(p.tidKrad)}</td><td>${badge(BASIS_LABELS[p.tidBasis],p.tidBasis==='synthetic'?'amber':'blue')}</td><td>${ev.soft?badge('입력 있음','blue'):badge('자료 부족')}</td></tr>`;});
+ return `${card(`부품 라이브러리 <span class="count">${project.parts.length}</span>`,table(['부품','분류','Mibit','TID<br>krad(Si)','TID 근거','목표궤도 SEU'],rows,'공개 제품 사양 3종과 합성 부품 3종을 포함합니다. 공개 사양은 구매 로트 시험성적서와 구분합니다.'),btn('사용자 부품 추가','add-part','plus'))}<div class="grid-equal">${card(h(r.part.name),`<div class="card-body"><div class="field-grid">${partInput('name','부품명',{type:'text'})}${partInput('vendor','제조사',{type:'text'})}${partInput('densityBits','메모리 비트 수',{min:1,step:1,help:'16 Mibit = 16,777,216 bit'})}${partInput('tidKrad','TID 근거값 (krad(Si))',{nullable:true,min:0,help:'미확보 시 비워두세요'})}${partInput('lot','제조 로트·리비전',{type:'text'})}<label><span>TID 근거 유형</span><select data-part-basis="true">${Object.entries(BASIS_LABELS).map(([v,n])=>`<option value="${v}" ${r.part.tidBasis===v?'selected':''}>${n}</option>`).join('')}</select></label><div class="full">${partInput('tidSource','TID 자료 제목 또는 URL',{type:'text'})}</div><label class="full"><span>시험조건·판정기준·제한사항</span><textarea data-path="part.notes">${h(r.part.notes)}</textarea></label></div><p class="input-note">TID 값·용량·출처를 수정하면 근거 유형이 ‘사용자 자료’로 전환됩니다. 원래 출처와 변경 내용을 함께 기록하세요.</p></div>`,btn('복제','clone-part','plus'))}${card('자료 해석',`<div class="card-body explain"><p><strong>제조사 사양</strong>은 제품군의 공개 성능입니다. 선량률·바이어스·온도·어닐링·실패 기준과 구매 등급을 확인해야 합니다.</p><p><strong>SEU</strong>는 목표궤도와 차폐 조건에 해당하는 부품별 원시 비트 오류율이 있어야 계산합니다. 내장 EDAC 적용 후 오류율은 V1.0 보호모델에 다시 넣지 않습니다.</p><p><strong>SEL 시험 LET</strong> 하나로 SEU 곡선이나 모든 임무의 내성을 추정하지 않습니다. 미관측 시험의 입자 플루언스와 동작조건을 확인하세요.</p><p class="spaced">${sourceLink(r.part.tidSource)}</p><div class="spaced">${btn('환경·오류율 자료 입력','go-data','arrow')}</div></div>`)}</div>`;
+}
+function protectionPage(r){
+ const p=project.protection;
+ const alternatives=['none','ecc','tmr'].map(mode=>{const pr=structuredClone(project);pr.protection.mode=mode;return {mode,r:evaluate(pr)};});
+ const max=Math.max(...alternatives.map(a=>a.r.soft?.uncorrectablePerDay||0),1e-15);
+ const bars=alternatives.map(a=>`<div class="bar-row"><span>${h(modeLabel[a.mode])}</span><div class="bar"><i style="width:${Math.min(100,(a.r.soft?.uncorrectablePerDay||0)/max*100)}%;background:${a.mode===p.mode?'#087f76':'#98b8c6'}"></i></div><b>${fmt(a.r.soft?.uncorrectablePerDay)}</b></div>`).join('');
+ return `<div class="grid-equal" style="margin-top:0">${card('보호설계 가정',`<div class="card-body">${partPicker()}<div class="segmented" aria-label="보호설계 선택">${['none','ecc','tmr'].map(mode=>`<button data-mode="${mode}" class="${p.mode===mode?'active':''}" aria-pressed="${p.mode===mode}">${mode==='none'?'보호 없음':mode==='ecc'?'ECC':'TMR'}</button>`).join('')}</div><div class="field-grid spaced">${input('mission.devicesPerBoard','장비당 소자 수',{min:1,step:1})}${input('protection.wordBits','보호 워드 길이 (bit)',{min:8,max:4096,step:1})}${input('protection.scrubSec','점검·복구 주기 (초)',{min:.01,max:86400})}${input('protection.recoverySec','기능 복구시간 (초)',{min:0,max:86400})}${input('protection.mbuFraction','ECC: 동시 다중비트 비율 (%)',{value:p.mbuFraction*100,percent:true,min:0,max:100,help:'같은 워드 내 2-bit 사건 가정'})}${input('protection.commonFraction','TMR: 공통원인 비율 (%)',{value:p.commonFraction*100,percent:true,min:0,max:100})}${input('protection.functionalFraction','잔존 오류의 기능 영향 (%)',{value:p.functionalFraction*100,percent:true,min:0,max:100})}${input('protection.coverage','기능 오류 검출·복구 성공 (%)',{value:p.coverage*100,percent:true,min:0,max:100})}</div><p class="input-note">보호효과·기능 영향·성공률은 사용자가 검증해야 하는 설계 가정입니다.</p></div>`)}${card('보호 후 잔존 사건 비교',`<div class="card-body"><p class="text-muted small">논리 장비 1대 · 사건/일 · 선형 축</p>${r.soft?bars:'<div class="empty"><strong>원시 비트 오류율이 필요합니다</strong>부품·궤도에 맞는 raw SEU 자료를 입력하세요.</div>'}${kv('선택 설계 원시 비트 오류',`${fmt(r.soft?.physicalRawPerDay)} 회/일`)}${kv('보호 후 잔존 사건',`${fmt(r.soft?.uncorrectablePerDay)} 회/일`)}${kv('모델상 복구 중단시간',`${fmt(r.downtime,5)} 초/일`)}${kv('미복구 기능 사건',`${fmt(r.unhandled)} 회/일`)}${kv('장비 소비전력',`${fmt(r.cost.powerW)} W`)}<p class="input-note">복구 중단시간은 검출·복구 가능한 SEU와 입력된 SEFI만 반영합니다. SEL·영구고장·부품 수명·위성망 가용도는 포함하지 않습니다.</p></div>`)}</div><div class="spaced">${card('계산에 적용한 가정',`<div class="card-body explain"><p><strong>ECC:</strong> 독립 오류가 동일 워드·주기 안에 2회 이상 쌓이는 확률과, 같은 워드의 동시 2-bit 사건을 합산합니다. 주기마다 워드가 정상화된다고 가정합니다. 오류 위치의 실제 상관관계·인터리빙 효과는 시험자료로 보완해야 합니다.</p><p><strong>TMR:</strong> 3개 복제본 중 2개 이상에 오류가 생기는 경우를 계산하고 공통원인 사건을 더합니다. 투표기는 이상적이며, 주기마다 재동기화된다고 가정합니다. 소자 수·전력·반도체 구매비는 3배 구성을 반영합니다.</p><p><strong>기능 복구:</strong> 비트 오류, 잔존 사건, 기능 중단을 구분합니다. 정상화 실패와 파괴성 고장은 중단시간 그래프에 숨겨 합산하지 않습니다.</p></div>`)}</div>`;
+}
+function verificationPage(r){
+ const tasks=verificationTasks(r,project),done=tasks.filter(t=>t.status==='완료').length,upper=project.flight.events===0?zeroEventUpperRate(project.flight.months,project.flight.devices):null;
+ const flightDose=evaluate(project,project.selectedPartId,'sso500').dose?.annualTidKrad;
+ const flightTotal=flightDose===undefined||flightDose===null?null:flightDose*project.flight.months/12;
+ const rows=ORBITS.slice(1).map(o=>{const ev=evaluate(project,project.selectedPartId,o.id);return `<tr><td>${h(o.label)}</td><td class="number">${fmt(flightTotal)}</td><td class="number">${fmt(ev.missionDose)}</td><td>${badge('추가 환경·효과 검증','amber')}</td></tr>`;});
+ return `<div class="metrics">${metric('검증 작업',tasks.length,'항목','환경·TID·SEE·복구·추적성')}${metric('진행상태 완료',done,'항목','완료 표시는 담당자 기록이며 승인 아님')}${metric('관측 소자·기간',`${project.flight.devices} × ${project.flight.months}`,'개·월','Space-MaCS 비교 시나리오')}${metric('0건 관측 사건율 상한',fmt(upper),upper===null?'':'회/소자·일','동일 관측조건 · 단측 95% 상한')}</div>${card('시제기·양산 적용 검증계획',`<div class="tasks">${tasks.map(t=>`<div class="task">${badge(t.category,t.priority==='높음'?'amber':'')}<div><h3>${h(t.title)}</h3><p>${h(t.detail)}</p></div><label><span class="sr-only">${h(t.title)} 진행상태</span><select data-task="${t.id}">${['계획','진행','완료'].map(s=>`<option ${t.status===s?'selected':''}>${s}</option>`).join('')}</select></label></div>`).join('')}</div>`,btn('계획 CSV','tasks','download'))}<div class="grid-equal">${card('Space-MaCS 관측조건',`<div class="card-body"><div class="field-grid">${input('flight.months','관측기간 (개월)',{min:.01,max:120})}${input('flight.devices','관측 소자 수',{min:1,step:1})}${input('flight.events','동일 유형 관측 사건 수',{min:0,step:1})}</div><p class="input-note">SEU·SEL 등 사건 유형을 분리한 기록에 적용하세요. 완전 검출·일정 사건율의 포아송 모형을 가정합니다. 사건이 1건 이상이면 V1.0은 0건 상한을 표시하지 않습니다.</p><div class="spaced">${notice('0건 관측은 고장률 0 또는 면역성을 의미하지 않습니다. 산출한 상한은 같은 관측환경의 값이며, 목표궤도에 직접 전용할 수 없습니다.','info')}</div></div>`)}${card('목표 임무와 검증 범위 비교',table(['목표 궤도','500 km 검증 선량<br>krad(Si)','목표 임무 선량<br>krad(Si)','검토'],rows,'500 km SSO의 경사각은 97.4° 가정입니다. 동일 선량만으로 입자 에너지·SEE·열조건의 동등성이 성립하지 않습니다.'))}</div>`;
+}
+function costPage(r){
+ const rows=project.parts.map(p=>{const ev=evaluate(project,p.id);return `<tr class="${p.id===project.selectedPartId?'selected':''}"><td>${h(p.name)}<span class="secondary">${h(p.grade)}</span></td><td class="number">${p.unitCostKrw===null?'견적 필요':`${fmt(p.unitCostKrw,0)}원`}</td><td class="number">${fmt(ev.cost.bom,0)}</td><td class="number">${won(ev.cost.total)}${ev.cost.total===null?'':'원'}</td><td class="number">${fmt(ev.cost.powerW)}</td><td>${badge(p.tidBasis==='synthetic'?'예시 단가':p.unitCostKrw===null?'견적 필요':'사용자 입력',p.tidBasis==='synthetic'?'amber':'')}</td></tr>`;});
+ return `<div class="metrics">${metric('분석 위성 수',fmt(project.mission.satellites,0),'기','제작 물량 비교 입력')}${metric('예비품 포함 장비',fmt(r.cost.boards,0),'대',`예비품 ${project.cost.sparesPercent}%`)}${metric('반복 제작비',won(r.cost.recurring),r.cost.recurring===null?'':'원','소자·선별·보호·차폐 합산')}${metric('비반복 시험·개발비',won(r.cost.nre),'원','설계·방사선 검증 가정')}</div><div class="grid-equal">${card('물량·부품 단가',`<div class="card-body">${partPicker()}<div class="field-grid">${input('mission.satellites','위성 수 (기)',{min:1,step:1})}${input('mission.boardsPerSatellite','위성당 장비 수 (대)',{min:1,step:1})}${input('mission.devicesPerBoard','장비당 논리 소자 수 (개)',{min:1,step:1})}${input('cost.sparesPercent','예비품 비율 (%)',{min:0,max:200})}${partInput('unitCostKrw','소자 단가 (원)',{min:0,nullable:true,help:'공개 가격 미확보 시 견적 입력'})}${partInput('powerW','소자 동작전력 (W)',{min:0,nullable:true})}</div><p class="input-note">보호설계는 ${h(modeLabel[project.protection.mode])}. TMR 선택 시 논리 소자당 실제 소자 3개를 반영합니다. 가상 부품 가격은 예시입니다.</p></div>`)}${card('보호·시험·개발비 가정',`<div class="card-body"><div class="field-grid">${input('cost.protectionPerBoard','장비당 보호설계 제작비 (원)',{min:0})}${input('cost.shieldPerBoard','장비당 차폐 제작비 (원)',{min:0})}${input('cost.screeningPerDevice','소자당 선별시험비 (원)',{min:0})}${input('cost.protectionPowerW','보호설계 추가전력 (W)',{min:0})}${input('cost.qualificationNre','방사선·인증 시험비 (원)',{min:0})}${input('cost.engineeringNre','설계·소프트웨어 개발비 (원)',{min:0})}</div><p class="input-note">실제 견적·공정자료로 갱신하세요. 차폐 두께 변경은 비용·질량을 자동 추정하지 않습니다. 본 비교에는 발사·운용·교체비가 포함되지 않습니다.</p></div>`)}</div><div class="spaced">${card('동일 물량·보호설계의 부품 대안',table(['부품','소자 단가','장비 1대 제작비<br>원','총 제작·검증비','장비 전력<br>W','비용 근거'],rows,'실제 부품의 가격·동작전력이 없으면 합계를 산출하지 않습니다. 비용만으로 적용 가능 여부를 판정하지 않습니다.'))}</div>`;
+}
+function envEditor(r){const rate=r.rate,dose=r.dose;return `<form id="env-editor"><div class="field-grid"><label><span>연간 TID (krad(Si)/년)</span><input name="dose" type="number" min="0" step="any" value="${h(dose?.annualTidKrad??'')}" placeholder="자료 없으면 비움"></label><label><span>원시 SEU (회/bit/일)</span><input name="seu" type="number" min="0" step="any" value="${h(rate?.seuPerBitDay??'')}" placeholder="자료 없으면 비움"></label><label><span>SEFI (회/소자/일)</span><input name="sefi" type="number" min="0" step="any" value="${h(rate?.sefiPerDeviceDay??'')}"></label><label><span>SEL (회/소자/일)</span><input name="sel" type="number" min="0" step="any" value="${h(rate?.selPerDeviceDay??'')}"></label><label><span>근거 유형</span><select name="basis"><option value="synthetic" ${dose?.basis==='synthetic'?'selected':''}>예시·가정</option><option value="user" ${dose?.basis==='user'?'selected':''}>사용자 해석자료</option><option value="test" ${dose?.basis==='test'?'selected':''}>시험자료와 연결된 해석</option></select></label><label><span>오류율 기준</span><select name="rateKind"><option value="raw" ${rate?.rateKind!=='effective'?'selected':''}>원시 비트 오류율 (raw)</option><option value="effective" ${rate?.rateKind==='effective'?'selected':''}>보호 후 출력율 (effective)</option></select></label><label class="full"><span>자료 제목·파일명·URL</span><input name="source" required value="${h(dose?.source||'')}"></label><label><span>환경 모델·차폐 형상</span><input name="model" required value="${h(dose?.model||'')}"></label><label><span>분석기간·태양활동 조건</span><input name="epoch" required value="${h(dose?.epoch||'')}"></label></div><div class="spaced"><button class="btn primary" type="submit">선택 조건에 적용</button></div><p class="input-note">${h(ORBITS.find(o=>o.id===project.mission.orbitId).label)} · ${project.mission.shieldMm} mm · ${h(r.part.name)}에 적용합니다. 선량은 같은 환경의 모든 부품에 공유됩니다. 고도·차폐 사이 보간은 하지 않습니다.</p></form>`;}
+function dataPage(r){return `<div class="grid-equal" style="margin-top:0">${card('선택 조건의 환경·오류율 입력',`<div class="card-body">${partPicker()}${envEditor(r)}</div>`)}<div class="stack">${card('분석자료 가져오기·저장',`<div class="card-body"><p class="explain">시나리오 JSON에는 임무·부품·환경·보호설계·비용·검증 상태와 설계 실험의 비트 상태·난수 시드가 저장됩니다. 반복 실험 결과는 같은 설정으로 다시 실행해 재현합니다. 가져온 자료는 이 브라우저에서 계산하며 서버로 업로드하지 않습니다.</p><div class="download-box"><p><strong>환경·오류율 CSV</strong><br>SPENVIS 원본 전체를 직접 읽는 형식이 아닙니다. 외부 해석 결과를 정규화 양식의 단위에 맞춰 정리하세요.</p><div class="button-row">${btn('빈 양식','template','download')}${btn('현재 환경 CSV','environment','download')}${btn('CSV 가져오기','import-env','upload','primary')}</div></div><p class="small text-muted">CSV 가져오기는 전체 환경자료를 교체합니다. 변경 전 시나리오 JSON을 저장할 수 있습니다. 빈 수치는 ‘미확보’, 0은 실제 0으로 처리합니다.</p><div class="button-row spaced">${btn('JSON 저장','save','download')}${btn('JSON 불러오기','load','upload')}${btn('예시 시나리오 복원','reset')}</div></div>`)}${card('자료 현황',`<div class="card-body">${kv('부품 자료',`${project.parts.length}개`)}${kv('환경·부품 조건',`${project.environments.length}행`)}${kv('현재 시나리오',h(project.title))}<div class="spaced">${input('title','시나리오 이름',{type:'text'})}</div></div>`)}</div></div><div class="grid-equal">${card('계산방법과 적용 범위',`<div class="card-body"><details class="method" open><summary>선량과 TID 여유</summary><div class="explain"><p>일치하는 고도·경사각·차폐의 연간 평균 선량만 사용합니다. 임무 선량 = 연간 선량 × 수명, 요구선량 = 임무 선량 × 설계 여유계수입니다. TID 수치 여유 = 부품 TID 근거값 / 요구선량입니다.</p><p>방사선 수송·태양활동 시계열을 자체 계산하지 않습니다. 차폐를 두껍게 했을 때의 효과는 해당 조건의 외부 자료가 있어야 비교합니다. 초기 합성 수치에는 물리적 예측 의미가 없습니다.</p></div></details><details class="method"><summary>메모리 오류·보호 모델</summary><div class="explain"><p>외부 계산된 per-bit-day 원시 SEU율에 소자 용량과 장비당 소자 수를 곱합니다. 양성자/중이온 단면적의 스펙트럼 적분은 SPENVIS 등 외부 도구에서 수행한 결과를 사용합니다.</p><p>ECC는 포아송 동일 워드 다중오류 확률과 동시 2-bit 사건을 합산합니다. TMR은 독립 복제본의 다수결 실패와 공통원인 항을 사용합니다. 모든 보호 워드가 점검주기마다 정상화된다고 가정합니다.</p><p>재시작 중단시간은 검출·복구 성공 사건의 포아송 점유모형입니다. 기능 영향 비율·복구 성공률은 사용자가 검증해야 합니다. SEE 전체의 신뢰도나 위성 고장확률을 계산하지 않습니다.</p></div></details><details class="method"><summary>0건 관측·95% 사건율 상한</summary><div class="explain"><p>0건 관측의 단측 95% 상한 = −ln(0.05) / (관측 소자 수 × 관측일수). 일정 사건율, 소자 간 독립성과 완전 검출을 가정합니다. 같은 관측환경에만 적용되며 다른 궤도에 직접 전용하지 않습니다.</p></div></details><details class="method"><summary>설계 실험과 예비평가의 범위</summary><div class="explain"><p>64비트 SECDED·TMR 설계 실험과 메모리 적용성 예비평가 도구입니다. 트랜지스터 TCAD, 열해석, DDD 수명모델, FPGA 전체 상태 해석, 임무 인증, 위성망 운용 가용도는 포함하지 않습니다. DDD·SEB·SEGR 등은 검증 공백으로 별도 평가해야 합니다.</p><p>시나리오 저장본에는 모든 입력자료가 포함됩니다. 이 페이지를 새로고침하면 저장하지 않은 입력은 예시 시나리오로 초기화됩니다.</p></div></details></div>`)}${card('방법론·제품 사양 출처',`<div class="card-body"><ul class="source-list">${SOURCES.map(s=>`<li><a href="${h(s.url)}" target="_blank" rel="noopener noreferrer">${h(s.name)} ↗</a><p>${h(s.note)}</p></li>`).join('')}</ul><p class="input-note">제품 자료 확인 기준: 2026-09-06. 조건·등급·개정판과 구매 로트는 적용 전에 재확인하세요.</p></div>`)}</div>`;}
+
+function labCsv(){
+ if(!campaign)throw Error('반복 실험을 먼저 실행하세요.');
+ const c=campaign;
+ const rows=[['model','data_hex','architecture','pattern','trials','seed','correct','detected_stop_required','silent_corruption','correct_fraction','scope'],...Object.entries(c.counts).map(([k,n])=>[c.model,c.hex,ARCHITECTURES[k],PATTERNS[c.pattern],c.trials,c.seed,n.correct,n.detected,n.silent,n.correct/c.trials,c.scope])];
+ download('kleo-chip-fault-campaign.csv',toCsv(rows),'text/csv;charset=utf-8');notify('패턴·시드·범위를 포함한 실험 결과를 저장했습니다.');
+}
+function printLabReport(){
+ const lab=project.lab,outcomes=inspectLab(lab),labels={correct:'정상 데이터 확보',detected:'검출·출력 사용 중단',silent:'미검출 손상'};
+ document.querySelector('#print-root').innerHTML=`<h1>K-LEO 반도체 보호설계 실험</h1><p>${h(project.title)} · V1.1.0 · ${h(new Date().toLocaleString('ko-KR'))}</p><p>64비트 기준 데이터: ${h(lab.hex)}. 수동 오류 주입 상태는 시나리오 JSON으로 재현할 수 있습니다.</p>${table(['구조','저장 bit','회로 계산 데이터','판정','오류 bit'],Object.entries(outcomes).map(([k,v])=>`<tr><td>${h(ARCHITECTURES[k])}</td><td>${v.physicalBits}</td><td>${v.hex}</td><td>${labels[v.status]}</td><td>${v.mismatch}</td></tr>`))}<h2>반복 오류 주입</h2>${campaign?`<p>패턴 ${h(PATTERNS[campaign.pattern])} · ${campaign.trials}회 · 시드 ${campaign.seed} · 기준값 ${campaign.hex}</p>${table(['구조','정상 데이터','검출·중단 필요','미검출 손상'],Object.entries(campaign.counts).map(([k,n])=>`<tr><td>${h(ARCHITECTURES[k])}</td><td>${n.correct}</td><td>${n.detected}</td><td>${n.silent}</td></tr>`))}`:'<p>실행한 반복 실험이 없습니다.</p>'}<h2>해석 범위</h2><p>확장 해밍 SECDED (72,64), 비트별 TMR 다수결과 불일치 검출을 계산합니다. TMR 투표기·불일치 검출기는 이상적입니다. 스크러빙은 회로가 계산한 값만 다시 씁니다. 원본 기준값을 이용한 복구는 하지 않습니다.</p><p>반복 실험은 매 시행 초기화 후 구조별 같은 개수의 서로 다른 물리 비트를 반전합니다. 상관 패턴은 TMR의 두 복제본 동일 비트, 다른 구조는 서로 다른 두 물리 비트입니다. 시간·궤도 방사선 발생률·물리 레이아웃·위성 신뢰도는 계산하지 않습니다. 결과 비율을 궤도 발생률에 직접 곱하지 마세요.</p><p>참고: NASA FPGA Mitigation Strategies for Critical Space Applications (2018), https://ntrs.nasa.gov/citations/20180006778</p>`;
+ window.print();
+}
+function notify(msg,error=false){const t=document.querySelector('#toast');clearTimeout(toastTimer);t.textContent=msg;t.hidden=false;t.className=error?'error':'';toastTimer=setTimeout(()=>t.hidden=true,5500);}
+function update(fn){const draft=structuredClone(project);fn(draft);validateProject(draft);project=draft;render();}
+function download(name,body,type){const blob=new Blob([body],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+const saveProject=()=>{download('kleo-chip-scenario.json',JSON.stringify(project,null,2),'application/json');notify('시나리오 JSON을 저장했습니다. 다시 불러와 이어서 분석할 수 있습니다.');};
+function resultCsv(){const rows=[['scenario','part_id','part_name','orbit','shield_mm','years','mission_tid_krad_si','required_tid_krad_si','tid_margin_ratio','logical_raw_bit_upsets_day','residual_events_day','modeled_recovery_downtime_sec_day','unrecovered_functional_events_day','protection','cost_krw','environment_basis','part_tid_basis','environment_source','part_tid_source','unresolved','scope']];for(const p of project.parts)for(const o of ORBITS){const r=evaluate(project,p.id,o.id);rows.push([project.title,p.id,p.name,o.label,project.mission.shieldMm,project.mission.years,r.missionDose,r.requiredDose,r.tidRatio,r.soft?.rawPerDay,r.soft?.uncorrectablePerDay,r.downtime,r.unhandled,modeLabel[project.protection.mode],r.cost.total,r.dose?.basis,p.tidBasis,r.dose?.source,p.tidSource,r.reasons.join(' / '),'예비평가; 합성자료는 실제 예측 아님; 중단시간은 검출·복구 가능한 SEU/입력된 SEFI만']);}download('kleo-chip-results.csv',toCsv(rows),'text/csv;charset=utf-8');notify('입력 근거와 자료 공백을 포함한 결과 CSV를 저장했습니다.');}
+function printReport(){const r=evaluate(project),o=ORBITS.find(x=>x.id===project.mission.orbitId);document.querySelector('#print-root').innerHTML=`<h1>K-LEO 우주반도체 적용성 검토</h1><p class="print-meta">${h(project.title)} · ${h(new Date().toLocaleString('ko-KR'))}</p>${evidenceNotice(r)}<p>평가 부품: <strong>${h(r.part.name)}</strong> · ${h(o.label)} · 수명 ${project.mission.years}년 · Al 등가 차폐 ${project.mission.shieldMm}mm · 선량 여유계수 ${project.mission.doseMargin}</p><h2>궤도별 수치 비교</h2>${table(['궤도','누적선량<br>krad(Si)','요구선량<br>krad(Si)','TID 여유','원시 오류<br>회/일','환경 근거'],orbitRows())}<h2>보호·비용 가정</h2><p>보호설계 ${h(modeLabel[project.protection.mode])}, 점검주기 ${project.protection.scrubSec}초, 복구시간 ${project.protection.recoverySec}초, 검출·복구 성공 ${fmt(project.protection.coverage*100)}%, 기능 영향 ${fmt(project.protection.functionalFraction*100)}%.</p><p>모델상 복구 중단 ${fmt(r.downtime,5)}초/일 · 미복구 기능 사건 ${fmt(r.unhandled)}회/일. 영구고장·SEL·위성망 가용도 제외.</p><p>제작·검증비 ${won(r.cost.total)}${r.cost.total===null?'':'원'} · 예비품 포함 ${r.cost.boards}대. 금액은 입력 가정이며 발사·운용·교체비 제외.</p><h2>검증계획</h2><ul>${verificationTasks(r,project).map(t=>`<li><strong>[${h(t.status)}] ${h(t.title)}</strong><br>${h(t.detail)}</li>`).join('')}</ul><h2>근거·제한사항</h2><p>환경: ${h(r.dose?.source||'자료 부족')}<br>모델·시기: ${h(r.dose?.model||'자료 부족')} / ${h(r.dose?.epoch||'자료 부족')}<br>부품 TID: ${h(r.part.tidSource)} (${h(BASIS_LABELS[r.part.tidBasis])})<br>시험조건: ${h(r.part.notes)}</p><p>추가 확인: ${h(r.reasons.join(' / '))}</p><p>고도·차폐 보간 없이 일치하는 연간 환경자료를 사용합니다. TID 수치 여유 충족은 부품 채택 승인이 아니며, 비트 오류율은 위성 고장확률이 아닙니다.</p>`;window.print();}
+
+app.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;try{
+ if(b.dataset.labView){update(p=>p.lab.view=b.dataset.labView);app.querySelector(`[data-lab-view="${b.dataset.labView}"]`)?.focus({preventScroll:true});return;}
+ if(b.dataset.labBit!==undefined){update(p=>p.lab=flipBit(p.lab,b.dataset.bank,Number(b.dataset.labBit),Number(b.dataset.copy)));app.querySelector(`[data-lab-bit="${b.dataset.labBit}"][data-bank="${b.dataset.bank}"][data-copy="${b.dataset.copy}"]`)?.focus({preventScroll:true});return;}
+ if(b.dataset.page){page=b.dataset.page;render();window.scrollTo({top:0});return;}
+ if(b.dataset.orbit){update(p=>p.mission.orbitId=b.dataset.orbit);return;}
+ if(b.dataset.part){update(p=>p.selectedPartId=b.dataset.part);return;}
+ if(b.dataset.mode){update(p=>p.protection.mode=b.dataset.mode);return;}
+ const a=b.dataset.action;if(!a)return;
+ if(a.startsWith('go-')){page=a.slice(3);render();window.scrollTo({top:0});return;}
+ if(['lab-single','lab-double','lab-common','lab-triple'].includes(a)){update(p=>p.lab=injectPreset(p.lab,a.slice(4)));return;}
+ if(a==='lab-clear'){update(p=>p.lab=resetMemory(p.lab));return;}
+ if(a==='lab-scrub'){
+  const before=inspectLab(project.lab)[project.lab.view];
+  update(p=>p.lab=scrubMemory(p.lab));
+  notify(project.lab.view==='ecc'&&before.flag==='uncorrectable'?'정정 불가 신호: 저장값을 덮어쓰지 않았습니다.':inspectLab(project.lab)[project.lab.view].mismatch?'회로 계산값을 썼지만 원본과 다른 데이터가 남아 있습니다.':'회로가 계산한 정상값으로 저장 비트를 복구했습니다.');return;
+ }
+ if(a==='lab-run'){campaign=runCampaign(project.lab);render();notify('반복 오류 주입 실험을 완료했습니다.');return;}
+ if(a==='lab-csv'){labCsv();return;}
+ if(a==='save')saveProject();
+ if(a==='load')document.querySelector('#project-file').click();
+ if(a==='results')resultCsv();
+ if(a==='environment')download('kleo-chip-environment.csv',environmentCsv(project),'text/csv;charset=utf-8');
+ if(a==='import-env')document.querySelector('#environment-file').click();
+ if(a==='template'){const rows=[CSV_COLUMNS,...ORBITS.map(o=>[o.id,o.altitudeKm,o.inclinationDeg,project.mission.shieldMm,'',project.selectedPartId,'','','','user','분석자료 제목 또는 URL','환경 모델과 차폐 형상','분석 시기와 태양활동','raw'])];download('kleo-chip-environment-template.csv',toCsv(rows),'text/csv;charset=utf-8');}
+ if(a==='tasks'){const rows=[['category','task','priority','status','details','part','orbit'],...verificationTasks(evaluate(project),project).map(t=>[t.category,t.title,t.priority,t.status,t.detail,selected().name,project.mission.orbitId])];download('kleo-chip-verification.csv',toCsv(rows),'text/csv;charset=utf-8');}
+ if(a==='print'){if(page==='lab')printLabReport();else printReport();}
+ if(a==='reset'){if(window.confirm('현재 입력을 예시 시나리오로 되돌릴까요? 저장하지 않은 변경은 없어집니다.')){project=createProject();campaign=null;render();notify('예시 시나리오로 복원했습니다.');}}
+ if(a==='add-part'||a==='clone-part'){update(p=>{const original=structuredClone(p.parts.find(x=>x.id===p.selectedPartId));const id='user-'+crypto.randomUUID().slice(0,8);const part=a==='clone-part'?{...original,id,name:original.name+' · 복사',tidBasis:'user'}:{...original,id,name:'사용자 메모리',vendor:'사용자 입력',grade:'미분류',tidKrad:null,tidBasis:'user',tidSource:'미확보',source:'사용자 입력',notes:'시험조건·근거자료를 입력하세요.',lot:'미확인',unitCostKrw:null,powerW:null};p.parts.push(part);p.selectedPartId=id;});notify('부품을 추가했습니다. 환경·오류율 자료는 별도로 연결하세요.');}
+ }catch(error){notify(error.message,true);}});
+
+app.addEventListener('change',e=>{const el=e.target;try{
+ if(el.dataset.labConfig){const key=el.dataset.labConfig;if(!['pattern','trials','seed'].includes(key))return;const value=key==='pattern'?el.value:el.value.trim()===''?NaN:Number(el.value);const next=structuredClone(project.lab);next[key]=value;validateLab(next);campaign=null;update(p=>p.lab=next);return;}
+ if(el.dataset.task){update(p=>p.taskStatus[el.dataset.task]=el.value);return;}
+ if(el.dataset.partBasis){update(p=>p.parts.find(x=>x.id===p.selectedPartId).tidBasis=el.value);return;}
+ if(!el.dataset.path)return;const path=el.dataset.path;
+ let value=el.type==='number'?(el.value===''&&el.dataset.nullable?null:Number(el.value)):el.value;
+ if(el.type==='number'&&el.value===''&&!el.dataset.nullable)throw Error('숫자 입력이 필요합니다.');
+ if(el.dataset.percent)value/=100;
+ update(p=>{const seg=path.split('.');let obj=p;if(seg[0]==='part'){obj=p.parts.find(x=>x.id===p.selectedPartId);seg.shift();}for(const k of seg.slice(0,-1))obj=obj[k];obj[seg.at(-1)]=value;if(path.startsWith('part.')&&['tidKrad','densityBits','tidSource'].includes(seg.at(-1)))obj.tidBasis='user';});
+ }catch(error){el.setAttribute('aria-invalid','true');notify(error.message,true);}});
+
+app.addEventListener('submit',e=>{if(e.target.id==='lab-data-form'){e.preventDefault();try{const hex=new FormData(e.target).get('hex').trim();const next=resetMemory(project.lab,hex);campaign=null;update(p=>p.lab=next);notify('기준 데이터를 기록하고 메모리를 초기화했습니다.');}catch(error){notify(error.message,true);}return;}if(e.target.id!=='env-editor')return;e.preventDefault();try{
+ const f=new FormData(e.target),num=k=>f.get(k).trim()===''?null:Number(f.get(k));
+ update(p=>{const m=p.mission,o=ORBITS.find(x=>x.id===m.orbitId),basis=f.get('basis'),dose=num('dose');const matched=x=>x.orbitId===m.orbitId&&Math.abs(x.shieldMm-m.shieldMm)<1e-8;
+ for(const row of p.environments.filter(matched)){const changed=row.annualTidKrad!==dose||row.basis!==basis||row.source!==f.get('source')||row.model!==f.get('model')||row.epoch!==f.get('epoch');if(changed&&row.partId!==p.selectedPartId){row.seuPerBitDay=null;row.sefiPerDeviceDay=null;row.selPerDeviceDay=null;row.notes='환경 조건 또는 근거 변경: 이 부품의 오류율 재해석 필요';}row.annualTidKrad=dose;row.basis=basis;row.source=f.get('source');row.model=f.get('model');row.epoch=f.get('epoch');}
+ const row={orbitId:o.id,altitudeKm:o.altitudeKm,inclinationDeg:o.inclinationDeg,shieldMm:m.shieldMm,annualTidKrad:dose,partId:p.selectedPartId,seuPerBitDay:num('seu'),sefiPerDeviceDay:num('sefi'),selPerDeviceDay:num('sel'),basis,source:f.get('source'),model:f.get('model'),epoch:f.get('epoch'),rateKind:f.get('rateKind'),notes:'선택 조건에서 직접 입력한 자료'};
+ const i=p.environments.findIndex(x=>matched(x)&&x.partId===p.selectedPartId);if(i<0)p.environments.push(row);else p.environments[i]=row;});notify('선택 조건의 환경·오류율을 적용했습니다.');
+ }catch(error){notify(error.message,true);}});
+
+document.querySelector('#project-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>4e6)throw Error('프로젝트는 4 MB 이하만 지원합니다.');const p=JSON.parse(await file.text());validateProject(p);p.lab??=createLab();project=p;campaign=null;render();notify('시나리오와 모든 입력자료를 불러왔습니다.');}catch(error){notify('불러오기 실패: '+error.message,true);}finally{e.target.value='';}});
+document.querySelector('#environment-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2e6)throw Error('CSV는 2 MB 이하만 지원합니다.');const next=importEnvironmentCsv(project,await file.text());if(window.confirm(`검증된 ${next.environments.length}행으로 전체 환경자료를 교체할까요?`)){project=next;render();notify('환경자료를 교체했습니다. 일치하는 조건만 계산에 사용합니다.');}}catch(error){notify('CSV 가져오기 실패: '+error.message,true);}finally{e.target.value='';}});
+try{render();}catch(e){app.innerHTML=`<main class="boot"><h1>분석 화면을 열 수 없습니다</h1><p>${h(e.message)}</p><p>페이지를 새로고침해 다시 시도해주세요.</p></main>`;}
+
+</script>
+</body></html>
