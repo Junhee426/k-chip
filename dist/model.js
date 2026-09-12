@@ -37,10 +37,24 @@ function interpolateDose(curve,targetMm){
  const nearest=curve.reduce((a,b)=>Math.abs(b.shieldMm-targetMm)<Math.abs(a.shieldMm-targetMm)?b:a);
  return {row:nearest,annualTidKrad:nearest.annualTidKrad,interpolated:false,nearestOnly:true};
 }
-export function findEnvironment(project,partId,orbitId=project.mission.orbitId){
- const orbit=ORBITS.find(x=>x.id===orbitId);
+// Groups project.environments by orbitId in one pass, for callers that look up
+// several orbits or parts against the same environments list (e.g. a per-orbit
+// dose chart or a per-part comparison table) instead of re-filtering the full
+// list once per row.
+export function buildEnvironmentIndex(project){
+ const orbitById=new Map(ORBITS.map(o=>[o.id,o]));
+ const index=new Map();
+ for(const x of project.environments){
+  const orbit=orbitById.get(x.orbitId);
+  if(!orbit||Math.abs(x.altitudeKm-orbit.altitudeKm)>=.01||Math.abs(x.inclinationDeg-orbit.inclinationDeg)>=.01)continue;
+  if(!index.has(x.orbitId))index.set(x.orbitId,[]);
+  index.get(x.orbitId).push(x);
+ }
+ return index;
+}
+export function findEnvironment(project,partId,orbitId=project.mission.orbitId,environmentIndex=null){
  const targetMm=project.mission.shieldMm;
- const matches=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
+ const matches=environmentIndex?(environmentIndex.get(orbitId)||[]):buildEnvironmentIndex(project).get(orbitId)||[];
  const exactShield=matches.filter(x=>Math.abs(x.shieldMm-targetMm)<1e-8);
  const exact=exactShield.find(x=>x.partId===partId);
  const doseExactRow=exact||exactShield.find(x=>x.partId==='*')||exactShield[0];
@@ -70,9 +84,9 @@ export function softErrorModel(rate,bits,devices,p){
  }
  return {rawPerDay:raw,physicalRawPerDay:raw*replicas,uncorrectablePerDay:uncorrectable,replicas};
 }
-export function evaluate(project,partId=project.selectedPartId,orbitId=project.mission.orbitId){
+export function evaluate(project,partId=project.selectedPartId,orbitId=project.mission.orbitId,environmentIndex=null){
  const part=project.parts.find(x=>x.id===partId);if(!part)throw Error('부품을 찾을 수 없습니다.');
- const {dose,rate,doseInterpolated,doseNearestOnly,doseBracket}=findEnvironment(project,partId,orbitId),m=project.mission,p=project.protection;
+ const {dose,rate,doseInterpolated,doseNearestOnly,doseBracket}=findEnvironment(project,partId,orbitId,environmentIndex),m=project.mission,p=project.protection;
  const missionDose=dose&&valid(dose.annualTidKrad)?dose.annualTidKrad*m.years:null;
  const requiredDose=missionDose===null?null:missionDose*m.doseMargin;
  const tidRatio=requiredDose===null||!valid(part.tidKrad)?null:requiredDose===0?Infinity:part.tidKrad/requiredDose;

@@ -69,9 +69,11 @@ export function resetMemory(lab,hex=lab.hex) {
   const fresh=createLab(hex);
   return {...lab,hex:fresh.hex,raw:fresh.raw,ecc:fresh.ecc,tmr:fresh.tmr};
 }
-export function inspectLab(lab) {
-  validateLab(lab);
-  const golden=hexToBits(lab.hex),decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
+// Split out of inspectLab so runCampaign's per-trial loop can skip validateLab and
+// re-deriving `golden` from lab.hex (both invariant across a campaign's trials) and
+// pass the already-computed golden bits straight through, up to 20,000 times per run.
+function analyzeMemory(lab,golden) {
+  const decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
   const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
   const mismatch=a=>a.reduce((n,b,i)=>n+Number(b!==golden[i]),0);
   return {
@@ -79,6 +81,10 @@ export function inspectLab(lab) {
     ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',physicalBits:72},
     tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent',physicalBits:192}
   };
+}
+export function inspectLab(lab) {
+  validateLab(lab);
+  return analyzeMemory(lab,hexToBits(lab.hex));
 }
 export function flipBit(lab,bank,index,replica=0) {
   validateLab(lab);
@@ -123,7 +129,7 @@ function cloneMemory(lab) {
 }
 export function runCampaign(lab) {
   validateLab(lab);
-  const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
+  const rng=seededRandom(lab.seed),baseline=createLab(lab.hex),golden=hexToBits(lab.hex);
   const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
   const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
   for(let trial=0;trial<lab.trials;trial++) {
@@ -139,7 +145,7 @@ export function runCampaign(lab) {
         }
       }
     }
-    const outcomes=inspectLab(memory);
+    const outcomes=analyzeMemory(memory,golden);
     for(const bank of Object.keys(counts))counts[bank][outcomes[bank].status]++;
   }
   return {model:'bit-fault-campaign-v1',hex:lab.hex,pattern:lab.pattern,seed:lab.seed,trials:lab.trials,counts,scope:'각 시행마다 초기화, 구조별 같은 수의 물리 비트 반전, 궤도 발생률·위성 신뢰도 아님; TMR 투표기·불일치 검출기는 이상적'};
