@@ -1,5 +1,5 @@
 import {createProject,ORBITS,SOURCES,BASIS_LABELS} from './data.js';
-import {evaluate,validateProject,softErrorModel,verificationTasks,zeroEventUpperRate,environmentCsv,importEnvironmentCsv,toCsv,CSV_COLUMNS,DAYS_PER_YEAR} from './model.js';
+import {evaluate,validateProject,verificationTasks,zeroEventUpperRate,environmentCsv,importEnvironmentCsv,toCsv,CSV_COLUMNS} from './model.js';
 
 import {createLab,validateLab,resetMemory,flipBit,injectPreset,scrubMemory,inspectLab,runCampaign,ARCHITECTURES,PATTERNS} from './fault-lab.js';
 import {labPage} from './lab-view.js';
@@ -7,7 +7,6 @@ import {labPage} from './lab-view.js';
 let project=createProject(),page='lab',toastTimer,campaign=null;
 const app=document.querySelector('#app');
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
 const fmt=(v,d=2)=>v===null||v===undefined?'자료 부족':v===Infinity?'∞':v!==0&&Math.abs(v)<.001?v.toExponential(2):new Intl.NumberFormat('ko-KR',{maximumFractionDigits:d}).format(v);
 const won=v=>v===null?'견적 필요':v>=1e8?`${fmt(v/1e8)}억`:v>=1e4?`${fmt(v/1e4)}만`:fmt(v);
 const modeLabel={none:'보호 없음',ecc:'ECC + 스크러빙',tmr:'TMR + 재동기화'};

@@ -89,7 +89,7 @@ function zip(files) {
     header.writeUInt16LE(filename.length, 26);
     const record = Buffer.alloc(46);
     record.writeUInt32LE(0x02014b50, 0);
-    record.writeUInt16LE(20, 4);
+    record.writeUInt16LE((3 << 8) | 20, 4); // version made by: Unix host, so external attrs below are honored
     record.writeUInt16LE(20, 6);
     record.writeUInt16LE(0x800, 8);
     record.writeUInt16LE(8, 10);
@@ -98,6 +98,7 @@ function zip(files) {
     record.writeUInt32LE(compressed.length, 20);
     record.writeUInt32LE(data.length, 24);
     record.writeUInt16LE(filename.length, 28);
+    record.writeUInt32LE((0o100644 << 16) >>> 0, 38); // external attrs: regular file, rw-r--r--
     record.writeUInt32LE(offset, 42);
     local.push(header, filename, compressed);
     central.push(record, filename);

@@ -115,13 +115,19 @@ export function seededRandom(seed) {
 function positions(n,k,rng) {
   const result=[];while(result.length<k){const p=Math.floor(rng()*n);if(!result.includes(p))result.push(p);}return result;
 }
+// Copies baseline's already-computed raw/ecc/tmr instead of recreating them via
+// resetMemory->createLab (hexToBits + SECDED encode), which runCampaign would
+// otherwise repeat on every one of up to 20,000 trials.
+function cloneMemory(lab) {
+  return {...lab,raw:[...lab.raw],ecc:[...lab.ecc],tmr:lab.tmr.map(replica=>[...replica])};
+}
 export function runCampaign(lab) {
   validateLab(lab);
   const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
   const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
   const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
   for(let trial=0;trial<lab.trials;trial++) {
-    const memory=resetMemory(baseline);
+    const memory=cloneMemory(baseline);
     for(const bank of ['raw','ecc','tmr']) {
       if(bank==='tmr'&&lab.pattern==='common') {
         const bit=Math.floor(rng()*64);

@@ -147,13 +147,19 @@ function seededRandom(seed) {
 function positions(n,k,rng) {
   const result=[];while(result.length<k){const p=Math.floor(rng()*n);if(!result.includes(p))result.push(p);}return result;
 }
+// Copies baseline's already-computed raw/ecc/tmr instead of recreating them via
+// resetMemory->createLab (hexToBits + SECDED encode), which runCampaign would
+// otherwise repeat on every one of up to 20,000 trials.
+function cloneMemory(lab) {
+  return {...lab,raw:[...lab.raw],ecc:[...lab.ecc],tmr:lab.tmr.map(replica=>[...replica])};
+}
 function runCampaign(lab) {
   validateLab(lab);
   const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
   const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
   const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
   for(let trial=0;trial<lab.trials;trial++) {
-    const memory=resetMemory(baseline);
+    const memory=cloneMemory(baseline);
     for(const bank of ['raw','ecc','tmr']) {
       if(bank==='tmr'&&lab.pattern==='common') {
         const bit=Math.floor(rng()*64);
@@ -375,7 +381,6 @@ function labPage(lab,campaign,ui) {
 let project=createProject(),page='lab',toastTimer,campaign=null;
 const app=document.querySelector('#app');
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const nf=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
 const fmt=(v,d=2)=>v===null||v===undefined?'자료 부족':v===Infinity?'∞':v!==0&&Math.abs(v)<.001?v.toExponential(2):new Intl.NumberFormat('ko-KR',{maximumFractionDigits:d}).format(v);
 const won=v=>v===null?'견적 필요':v>=1e8?`${fmt(v/1e8)}억`:v>=1e4?`${fmt(v/1e4)}만`:fmt(v);
 const modeLabel={none:'보호 없음',ecc:'ECC + 스크러빙',tmr:'TMR + 재동기화'};
