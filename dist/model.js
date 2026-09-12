@@ -79,8 +79,13 @@ export function softErrorModel(rate,bits,devices,p){
   uncorrectable=words*cycles*atLeastTwoPoisson(mu)+raw*p.mbuFraction/2;
  }
  if(p.mode==='tmr'){
-  const q=-Math.expm1(-rate*(1-p.commonFraction)*p.wordBits/cycles);
-  uncorrectable=words*cycles*(3*q*q-2*q*q*q)+raw*p.commonFraction;
+  // TMR only fails a word when >=2 of 3 replicas disagree at the SAME bit position, not when any
+  // bit anywhere in the replica's copy of the word is wrong. So the per-cycle probability below is
+  // per bit (not per word: no *wordBits* inside it), and the resulting per-bit failure probability
+  // is then applied across all wordBits positions in a word.
+  const q=-Math.expm1(-rate*(1-p.commonFraction)/cycles);
+  const bitFail=3*q*q-2*q*q*q;
+  uncorrectable=words*cycles*p.wordBits*bitFail+raw*p.commonFraction;
  }
  return {rawPerDay:raw,physicalRawPerDay:raw*replicas,uncorrectablePerDay:uncorrectable,replicas};
 }

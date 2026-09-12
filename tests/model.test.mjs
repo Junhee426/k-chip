@@ -81,6 +81,17 @@ test('TMR accounts for triplication and common-cause contribution',()=>{
  assert.equal(r.soft.physicalRawPerDay,r.soft.rawPerDay*3);assert.equal(r.cost.chips,6);
  p.protection.commonFraction=1;const common=evaluate(p);assert.equal(common.soft.uncorrectablePerDay,common.soft.rawPerDay);
 });
+test('TMR uncorrectable rate scales linearly with word width, not quadratically',()=>{
+ // A word only fails when >=2 of 3 replicas disagree at the SAME bit position, so doubling
+ // wordBits should roughly double the per-word failure rate (more bit positions that could each
+ // independently fail), not quadruple it (which double-counts wordBits inside the per-event
+ // probability).
+ const p={mode:'tmr',commonFraction:0,scrubSec:60};
+ const narrow=softErrorModel(1e-6,64,1,{...p,wordBits:64});
+ const wide=softErrorModel(1e-6,128,1,{...p,wordBits:128});
+ const ratio=wide.uncorrectablePerDay/narrow.uncorrectablePerDay;
+ assert.ok(ratio>1.5&&ratio<3,`expected roughly linear scaling with wordBits, got ratio ${ratio}`);
+});
 test('zero coverage exposes unhandled functional events, not a claim of reliability',()=>{
  const p=createProject();p.protection.coverage=0;const r=evaluate(p);assert.equal(r.downtime,0);assert.ok(r.unhandled>0);
  assert.equal(r.sel,null);assert.ok(r.reasons.includes('SEL/파괴성 효과 검토'));
