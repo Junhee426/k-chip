@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject} from '../dist/data.js';
-import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv} from '../dist/model.js';
+import {evaluate,findEnvironment,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -13,9 +13,47 @@ test('per-bit rate scales with logical bits, and not satellite production quanti
  p.mission.satellites=512;assert.equal(evaluate(p).soft.rawPerDay,r.soft.rawPerDay);
  p.mission.devicesPerBoard=4;assert.equal(evaluate(p).soft.rawPerDay,r.soft.rawPerDay*2);
 });
-test('unsupported shielding or orbit geometry never extrapolates',()=>{
- const p=createProject();p.mission.shieldMm=2.5;const r=evaluate(p);assert.equal(r.missionDose,null);assert.equal(r.soft,null);
- p.mission.shieldMm=2;p.environments.forEach(e=>e.inclinationDeg=60);assert.equal(evaluate(p).missionDose,null);
+test('shielding thickness between two known points is log-linearly interpolated',()=>{
+ const p=createProject();p.mission.shieldMm=2.5;const r=evaluate(p);
+ // leo888 doses at 2mm/3mm are 8 and 5.5 krad(Si)/yr; log-linear midpoint is their geometric mean.
+ const expectedDose=Math.sqrt(8*5.5);
+ assert.ok(Math.abs(r.dose.annualTidKrad-expectedDose)<1e-9);
+ assert.ok(Math.abs(r.missionDose-expectedDose*p.mission.years)<1e-9);
+ assert.equal(r.doseInterpolated,true);assert.equal(r.doseNearestOnly,false);
+ assert.deepEqual(r.doseBracket,[2,3]);
+ assert.ok(r.reasons.some(x=>x.includes('보간')));
+ // Only the exact-thickness SEU/SEFI/SEL rate rows are trusted; interpolation is TID-only.
+ assert.equal(r.soft,null);
+});
+test('shielding thickness outside the known range uses the nearest point, never extrapolated',()=>{
+ const p=createProject();p.mission.shieldMm=0.5;const r=evaluate(p);
+ assert.equal(r.dose.annualTidKrad,15);// the 1mm point for leo888, not a trend continued past it
+ assert.equal(r.doseInterpolated,false);assert.equal(r.doseNearestOnly,true);
+ assert.ok(r.reasons.some(x=>x.includes('범위를 벗어나')));
+ const p2=createProject();p2.mission.shieldMm=10;const r2=evaluate(p2);
+ assert.equal(r2.dose.annualTidKrad,5.5);// the 3mm point, not extrapolated further out
+ assert.equal(r2.doseNearestOnly,true);
+});
+test('mismatched orbit geometry is never bridged by shielding interpolation',()=>{
+ const p=createProject();p.environments.forEach(e=>e.inclinationDeg=60);
+ assert.equal(evaluate(p).missionDose,null);
+ p.mission.shieldMm=2.5;assert.equal(evaluate(p).missionDose,null);
+});
+test('an exact shielding match is used as-is, never routed through interpolation',()=>{
+ const p=createProject();
+ const {dose,doseInterpolated,doseNearestOnly}=findEnvironment(p,'demo-a','leo888');
+ assert.equal(dose.annualTidKrad,8);assert.equal(doseInterpolated,false);assert.equal(doseNearestOnly,false);
+});
+test('an environment with only one known shielding thickness cannot interpolate, only match or fall back to nearest',()=>{
+ const p=createProject();p.environments=p.environments.filter(e=>!(e.orbitId==='leo888'&&e.shieldMm===1));
+ p.mission.shieldMm=2.5;
+ const {doseInterpolated,doseNearestOnly,dose}=findEnvironment(p,'demo-a','leo888');
+ assert.equal(doseInterpolated,true);assert.equal(doseNearestOnly,false);
+ assert.ok(Math.abs(dose.annualTidKrad-Math.sqrt(8*5.5))<1e-9);
+ p.environments=p.environments.filter(e=>!(e.orbitId==='leo888'&&e.shieldMm===3));
+ const single=findEnvironment(p,'demo-a','leo888');
+ assert.equal(single.doseInterpolated,false);assert.equal(single.doseNearestOnly,true);
+ assert.equal(single.dose.annualTidKrad,8);
 });
 test('vendor TID specifications cannot manufacture unknown SEU or price data',()=>{
  const p=createProject();p.selectedPartId='ut8q512e';const r=evaluate(p);assert.equal(r.soft,null);assert.equal(r.cost.total,null);assert.equal(r.cost.powerW,null);assert.equal(r.part.tidBasis,'spec');

@@ -8,12 +8,52 @@ export function atLeastTwoPoisson(mu){
  if(mu<1e-4)return mu*mu/2-mu*mu*mu/3+mu**4/8;
  return Math.max(0,1-Math.exp(-mu)*(1+mu));
 }
+// Rows sharing an orbit and shield thickness must share the same annualTidKrad (enforced by
+// validateProject), so distinct (shieldMm, dose) points describe one dose-depth curve per orbit,
+// independent of partId. Builds that curve for interpolation when no exact-thickness row exists.
+function doseCurve(matches){
+ const points=new Map();
+ for(const x of matches){
+  if(!valid(x.annualTidKrad)||points.has(x.shieldMm))continue;
+  points.set(x.shieldMm,x);
+ }
+ return [...points.values()].sort((a,b)=>a.shieldMm-b.shieldMm);
+}
+// TID attenuates roughly exponentially with Al-equivalent thickness, so interpolate in log-dose
+// space between the nearest thinner/thicker points rather than linearly. Never extrapolates
+// beyond the available thickness range: outside it, the nearest single point is used as-is and
+// flagged, since guessing a trend past the last measured point is not justified.
+function interpolateDose(curve,targetMm){
+ if(!curve.length)return null;
+ const exact=curve.find(x=>Math.abs(x.shieldMm-targetMm)<1e-8);
+ if(exact)return {row:exact,annualTidKrad:exact.annualTidKrad,interpolated:false,nearestOnly:false};
+ const below=curve.filter(x=>x.shieldMm<targetMm).at(-1);
+ const above=curve.find(x=>x.shieldMm>targetMm);
+ if(below&&above){
+  const frac=(targetMm-below.shieldMm)/(above.shieldMm-below.shieldMm);
+  const logBelow=Math.log(Math.max(below.annualTidKrad,1e-12)),logAbove=Math.log(Math.max(above.annualTidKrad,1e-12));
+  return {row:below,annualTidKrad:Math.exp(logBelow+(logAbove-logBelow)*frac),interpolated:true,nearestOnly:false,bracket:[below.shieldMm,above.shieldMm]};
+ }
+ const nearest=curve.reduce((a,b)=>Math.abs(b.shieldMm-targetMm)<Math.abs(a.shieldMm-targetMm)?b:a);
+ return {row:nearest,annualTidKrad:nearest.annualTidKrad,interpolated:false,nearestOnly:true};
+}
 export function findEnvironment(project,partId,orbitId=project.mission.orbitId){
  const orbit=ORBITS.find(x=>x.id===orbitId);
- const rows=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.shieldMm-project.mission.shieldMm)<1e-8&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
- const exact=rows.find(x=>x.partId===partId);
- const dose=exact||rows.find(x=>x.partId==='*')||rows[0];
- return {dose: dose||null,rate:exact||null};
+ const targetMm=project.mission.shieldMm;
+ const matches=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
+ const exactShield=matches.filter(x=>Math.abs(x.shieldMm-targetMm)<1e-8);
+ const exact=exactShield.find(x=>x.partId===partId);
+ const doseExactRow=exact||exactShield.find(x=>x.partId==='*')||exactShield[0];
+ if(doseExactRow)return {dose:doseExactRow,rate:exact||null,doseInterpolated:false,doseNearestOnly:false,doseBracket:null};
+ const interp=interpolateDose(doseCurve(matches),targetMm);
+ if(!interp)return {dose:null,rate:exact||null,doseInterpolated:false,doseNearestOnly:false,doseBracket:null};
+ return {
+  dose:{...interp.row,shieldMm:targetMm,annualTidKrad:interp.annualTidKrad},
+  rate:exact||null,
+  doseInterpolated:interp.interpolated,
+  doseNearestOnly:interp.nearestOnly,
+  doseBracket:interp.bracket||null,
+ };
 }
 export function softErrorModel(rate,bits,devices,p){
  if(rate===null||rate===undefined)return null;
@@ -32,7 +72,7 @@ export function softErrorModel(rate,bits,devices,p){
 }
 export function evaluate(project,partId=project.selectedPartId,orbitId=project.mission.orbitId){
  const part=project.parts.find(x=>x.id===partId);if(!part)throw Error('부품을 찾을 수 없습니다.');
- const {dose,rate}=findEnvironment(project,partId,orbitId),m=project.mission,p=project.protection;
+ const {dose,rate,doseInterpolated,doseNearestOnly,doseBracket}=findEnvironment(project,partId,orbitId),m=project.mission,p=project.protection;
  const missionDose=dose&&valid(dose.annualTidKrad)?dose.annualTidKrad*m.years:null;
  const requiredDose=missionDose===null?null:missionDose*m.doseMargin;
  const tidRatio=requiredDose===null||!valid(part.tidKrad)?null:requiredDose===0?Infinity:part.tidKrad/requiredDose;
@@ -48,13 +88,15 @@ export function evaluate(project,partId=project.selectedPartId,orbitId=project.m
  const synthetic=part.tidBasis==='synthetic'||dose?.basis==='synthetic'||rate?.basis==='synthetic';
  const reasons=[];
  if(!dose)reasons.push('일치하는 궤도·차폐의 환경자료');
+ else if(doseNearestOnly)reasons.push('차폐두께가 보유 자료 범위를 벗어나 가장 가까운 두께의 선량을 그대로 사용 (외삽 아님)');
+ else if(doseInterpolated)reasons.push(`차폐 ${doseBracket[0]}–${doseBracket[1]} mm 자료 사이의 로그선형 보간 선량 (실측 아님)`);
  if(!valid(part.tidKrad))reasons.push('부품 TID 근거');
  if(!rate||!valid(rate.seuPerBitDay))reasons.push('부품·궤도별 SEU 계산자료');
  else if(!rawCompatible)reasons.push('원시 비트 SEU율 (현재 자료는 보호 후 출력율)');
  if(sefi===null)reasons.push('SEFI 시험·발생률');
  if(sel===null)reasons.push('SEL/파괴성 효과 검토');
  if(!part.lot||part.lot==='미확인')reasons.push('구매 로트 및 시험조건');
- return {part,dose,rate,missionDose,requiredDose,tidRatio,soft,sefi,sel,functional,recoverable,downtime,unhandled,synthetic,reasons,cost:costModel(project,part)};
+ return {part,dose,rate,missionDose,requiredDose,tidRatio,soft,sefi,sel,functional,recoverable,downtime,unhandled,synthetic,reasons,doseInterpolated,doseNearestOnly,doseBracket,cost:costModel(project,part)};
 }
 export function costModel(project,part,mode=project.protection.mode){
  const {mission:m,cost:c}=project,replicas=mode==='tmr'?3:1;
