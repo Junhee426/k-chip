@@ -101,15 +101,31 @@ function resetMemory(lab,hex=lab.hex) {
   const fresh=createLab(hex);
   return {...lab,hex:fresh.hex,raw:fresh.raw,ecc:fresh.ecc,tmr:fresh.tmr};
 }
+// Shared by inspectLab() and the runCampaign() hot loop. Takes the golden reference
+// bits already decoded, and returns only the correct/detected/silent classification —
+// not the hex/mismatch rendering that a single UI inspection also needs — so a tight
+// repeated-trial loop need not re-parse the same hex string (BigInt parsing), re-run
+// full lab validation, or re-render bitsToHex() on every trial.
+function classifyAgainst(golden,lab) {
+  const decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
+  const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
+  return {
+    decoded,vote,
+    status:{
+      raw:rawCorrect?'correct':'silent',
+      ecc:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',
+      tmr:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent'
+    }
+  };
+}
 function inspectLab(lab) {
   validateLab(lab);
-  const golden=hexToBits(lab.hex),decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
-  const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
+  const golden=hexToBits(lab.hex),{decoded,vote,status}=classifyAgainst(golden,lab);
   const mismatch=a=>a.reduce((n,b,i)=>n+Number(b!==golden[i]),0);
   return {
-    raw:{data:lab.raw,hex:bitsToHex(lab.raw),mismatch:mismatch(lab.raw),status:rawCorrect?'correct':'silent',flag:'검출회로 없음',physicalBits:64},
-    ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',physicalBits:72},
-    tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent',physicalBits:192}
+    raw:{data:lab.raw,hex:bitsToHex(lab.raw),mismatch:mismatch(lab.raw),status:status.raw,flag:'검출회로 없음',physicalBits:64},
+    ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:status.ecc,physicalBits:72},
+    tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:status.tmr,physicalBits:192}
   };
 }
 function flipBit(lab,bank,index,replica=0) {
@@ -150,10 +166,16 @@ function positions(n,k,rng) {
 function runCampaign(lab) {
   validateLab(lab);
   const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
+  // Golden reference bits and validation only depend on lab.hex/architecture, both fixed
+  // for the whole campaign, so compute them once instead of per trial (see below).
+  const golden=hexToBits(lab.hex);
   const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
   const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
   for(let trial=0;trial<lab.trials;trial++) {
-    const memory=resetMemory(baseline);
+    // Clone the already-encoded baseline directly instead of resetMemory(), which would
+    // re-run hexToBits/encode64 (BigInt parsing + parity recomputation) on every trial even
+    // though the golden data never changes across a campaign.
+    const memory={...baseline,raw:[...baseline.raw],ecc:[...baseline.ecc],tmr:baseline.tmr.map(a=>[...a])};
     for(const bank of ['raw','ecc','tmr']) {
       if(bank==='tmr'&&lab.pattern==='common') {
         const bit=Math.floor(rng()*64);
@@ -165,13 +187,18 @@ function runCampaign(lab) {
         }
       }
     }
-    const outcomes=inspectLab(memory);
-    for(const bank of Object.keys(counts))counts[bank][outcomes[bank].status]++;
+    const {status}=classifyAgainst(golden,memory);
+    for(const bank of Object.keys(counts))counts[bank][status[bank]]++;
   }
   return {model:'bit-fault-campaign-v1',hex:lab.hex,pattern:lab.pattern,seed:lab.seed,trials:lab.trials,counts,scope:'각 시행마다 초기화, 구조별 같은 수의 물리 비트 반전, 궤도 발생률·위성 신뢰도 아님; TMR 투표기·불일치 검출기는 이상적'};
 }
 
 
+// Scenario JSON contract version (see SCENARIO_SCHEMA.md). Bump only alongside
+// validateProject() in model.js and the compatibility notes in that document —
+// a planned `kleo` orbit-designer integration reads this field to decide whether
+// it understands a saved scenario file.
+const SCENARIO_SCHEMA_VERSION = 1;
 const SOURCES = [
  {name:'SPENVIS · 환경·선량 모델',url:'https://www.spenvis.oma.be/models.php',note:'환경 및 차폐별 선량을 외부 계산한 뒤 정규화 표로 가져옵니다.'},
  {name:'SPENVIS · 단일사건오류 계산',url:'https://www.spenvis.oma.be/help/models/longupset.html',note:'부품 반응자료와 환경 스펙트럼이 모두 필요합니다. V1.0은 외부 계산된 부품·환경별 오류율을 사용합니다.'},
@@ -201,11 +228,13 @@ function createProject(){
  const doses=[[7,4,2.8],[15,8,5.5],[32,18,12]];
  const rates=[[5e-8,3e-8,2.4e-8],[1.1e-7,7e-8,5e-8],[2.4e-7,1.6e-7,1.1e-7]];
  ORBITS.forEach((o,i)=>[1,2,3].forEach((shield,j)=>['demo-a','demo-b','demo-c'].forEach((part,k)=>rows.push({orbitId:o.id,altitudeKm:o.altitudeKm,inclinationDeg:o.inclinationDeg,shieldMm:shield,annualTidKrad:doses[i][j],partId:part,seuPerBitDay:rates[i][j]*[1,.06,.002][k],sefiPerDeviceDay:[.001,.0002,.00002][k]*(i+1),selPerDeviceDay:null,basis:'synthetic',source:demoSource,model:'합성 시나리오',epoch:'태양활동 조건을 가정한 교육용 자료',rateKind:'raw',notes:'표의 고도별 차이와 차폐 효과는 임의의 교육용 수치이며 실제 우주환경 분석 결과가 아닙니다.'}))));
- return {schemaVersion:1,lab:createLab(),title:'K-LEO 메모리 적용성 비교',mission:{orbitId:'leo888',shieldMm:2,years:5,doseMargin:2,devicesPerBoard:2,satellites:256,boardsPerSatellite:1},selectedPartId:'demo-a',parts,environments:rows,protection:{mode:'ecc',wordBits:64,scrubSec:60,mbuFraction:.01,commonFraction:.01,functionalFraction:.1,recoverySec:5,coverage:.95},cost:{protectionPerBoard:20000,shieldPerBoard:30000,screeningPerDevice:10000,qualificationNre:30000000,engineeringNre:20000000,sparesPercent:10,protectionPowerW:.15},flight:{months:6,devices:2,events:{seu:0,sel:0,sefi:0}},taskStatus:{}};
+ return {schemaVersion:SCENARIO_SCHEMA_VERSION,lab:createLab(),title:'K-LEO 메모리 적용성 비교',mission:{orbitId:'leo888',shieldMm:2,years:5,doseMargin:2,devicesPerBoard:2,satellites:256,boardsPerSatellite:1},selectedPartId:'demo-a',parts,environments:rows,protection:{mode:'ecc',wordBits:64,scrubSec:60,mbuFraction:.01,commonFraction:.01,functionalFraction:.1,recoverySec:5,coverage:.95},cost:{protectionPerBoard:20000,shieldPerBoard:30000,screeningPerDevice:10000,qualificationNre:30000000,engineeringNre:20000000,sparesPercent:10,protectionPowerW:.15},flight:{months:6,devices:2,events:{seu:0,sel:0,sefi:0}},taskStatus:{}};
 }
 const BASIS_LABELS={synthetic:'예시·가정',spec:'제조사 사양',test:'시험자료 입력',user:'사용자 자료'};
 
 
+
+export {SCENARIO_SCHEMA_VERSION};
 
 const DAYS_PER_YEAR=365.25;
 const valid=(v)=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
@@ -291,7 +320,7 @@ function verificationTasks(result,project){
 function number(v,path,min=0,max=1e15,nullable=false){if(nullable&&v===null)return;if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error(`${path}: ${min}~${max} 범위의 숫자가 필요합니다.`);}
 function str(v,path,max=2000){if(typeof v!=='string'||!v.trim()||v.length>max)throw Error(`${path}: 비어 있지 않은 텍스트가 필요합니다.`);}
 function validateProject(p){
- if(!p||p.schemaVersion!==1)throw Error('schemaVersion 1 프로젝트 파일이 필요합니다.');
+ if(!p||p.schemaVersion!==SCENARIO_SCHEMA_VERSION)throw Error(`schemaVersion ${SCENARIO_SCHEMA_VERSION} 프로젝트 파일이 필요합니다. (자료: ${p?.schemaVersion})`);
  if(p.lab!==undefined)validateLab(p.lab);
  str(p.title,'시나리오 제목',120);
  if(!Array.isArray(p.parts)||p.parts.length<1||p.parts.length>100)throw Error('부품은 1~100개까지 지원합니다.');

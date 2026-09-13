@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createProject} from '../dist/data.js';
-import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv} from '../dist/model.js';
+import {createProject,SCENARIO_SCHEMA_VERSION} from '../dist/data.js';
+import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -74,4 +74,14 @@ test('unsafe or inconsistent imported data is rejected',()=>{
  const r=createProject();r.environments[0].annualTidKrad=1234;assert.throws(()=>validateProject(r),/선량/);
  const s=createProject();s.environments.push({...s.environments[0]});assert.throws(()=>validateProject(s),/중복/);
  assert.throws(()=>parseCsv('"not closed'));assert.ok(toCsv([['=HYPERLINK("x")']]).includes("'=HYPERLINK"));
+});
+test('scenario schema version is a single shared source of truth (kleo integration contract)',()=>{
+ // data.js and model.js must agree on SCENARIO_SCHEMA_VERSION (re-exported from model.js
+ // for convenience) so a saved scenario JSON and the validator that reads it back never
+ // drift apart — see SCENARIO_SCHEMA.md for the versioning contract this backs.
+ assert.equal(SCENARIO_SCHEMA_VERSION,MODEL_SCHEMA_VERSION);
+ const p=createProject();assert.equal(p.schemaVersion,SCENARIO_SCHEMA_VERSION);
+ validateProject(p);
+ p.schemaVersion=SCENARIO_SCHEMA_VERSION+1;assert.throws(()=>validateProject(p),/schemaVersion/);
+ p.schemaVersion=String(SCENARIO_SCHEMA_VERSION);assert.throws(()=>validateProject(p),/schemaVersion/);
 });
