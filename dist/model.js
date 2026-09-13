@@ -1,5 +1,6 @@
-import { ORBITS } from './data.js';
+import { ORBITS, SCENARIO_SCHEMA_VERSION } from './data.js';
 import {validateLab} from './fault-lab.js';
+export {SCENARIO_SCHEMA_VERSION};
 
 export const DAYS_PER_YEAR=365.25;
 const valid=(v)=>typeof v==='number'&&Number.isFinite(v)&&v>=0;
@@ -85,7 +86,7 @@ export function verificationTasks(result,project){
 function number(v,path,min=0,max=1e15,nullable=false){if(nullable&&v===null)return;if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error(`${path}: ${min}~${max} 범위의 숫자가 필요합니다.`);}
 function str(v,path,max=2000){if(typeof v!=='string'||!v.trim()||v.length>max)throw Error(`${path}: 비어 있지 않은 텍스트가 필요합니다.`);}
 export function validateProject(p){
- if(!p||p.schemaVersion!==1)throw Error('schemaVersion 1 프로젝트 파일이 필요합니다.');
+ if(!p||p.schemaVersion!==SCENARIO_SCHEMA_VERSION)throw Error(`schemaVersion ${SCENARIO_SCHEMA_VERSION} 프로젝트 파일이 필요합니다. (자료: ${p?.schemaVersion})`);
  if(p.lab!==undefined)validateLab(p.lab);
  str(p.title,'시나리오 제목',120);
  if(!Array.isArray(p.parts)||p.parts.length<1||p.parts.length>100)throw Error('부품은 1~100개까지 지원합니다.');

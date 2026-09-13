@@ -1,5 +1,10 @@
 import {createLab} from './fault-lab.js';
 
+// Scenario JSON contract version (see SCENARIO_SCHEMA.md). Bump only alongside
+// validateProject() in model.js and the compatibility notes in that document —
+// a planned `kleo` orbit-designer integration reads this field to decide whether
+// it understands a saved scenario file.
+export const SCENARIO_SCHEMA_VERSION = 1;
 export const SOURCES = [
  {name:'SPENVIS · 환경·선량 모델',url:'https://www.spenvis.oma.be/models.php',note:'환경 및 차폐별 선량을 외부 계산한 뒤 정규화 표로 가져옵니다.'},
  {name:'SPENVIS · 단일사건오류 계산',url:'https://www.spenvis.oma.be/help/models/longupset.html',note:'부품 반응자료와 환경 스펙트럼이 모두 필요합니다. V1.0은 외부 계산된 부품·환경별 오류율을 사용합니다.'},
@@ -29,6 +34,6 @@ export function createProject(){
  const doses=[[7,4,2.8],[15,8,5.5],[32,18,12]];
  const rates=[[5e-8,3e-8,2.4e-8],[1.1e-7,7e-8,5e-8],[2.4e-7,1.6e-7,1.1e-7]];
  ORBITS.forEach((o,i)=>[1,2,3].forEach((shield,j)=>['demo-a','demo-b','demo-c'].forEach((part,k)=>rows.push({orbitId:o.id,altitudeKm:o.altitudeKm,inclinationDeg:o.inclinationDeg,shieldMm:shield,annualTidKrad:doses[i][j],partId:part,seuPerBitDay:rates[i][j]*[1,.06,.002][k],sefiPerDeviceDay:[.001,.0002,.00002][k]*(i+1),selPerDeviceDay:null,basis:'synthetic',source:demoSource,model:'합성 시나리오',epoch:'태양활동 조건을 가정한 교육용 자료',rateKind:'raw',notes:'표의 고도별 차이와 차폐 효과는 임의의 교육용 수치이며 실제 우주환경 분석 결과가 아닙니다.'}))));
- return {schemaVersion:1,lab:createLab(),title:'K-LEO 메모리 적용성 비교',mission:{orbitId:'leo888',shieldMm:2,years:5,doseMargin:2,devicesPerBoard:2,satellites:256,boardsPerSatellite:1},selectedPartId:'demo-a',parts,environments:rows,protection:{mode:'ecc',wordBits:64,scrubSec:60,mbuFraction:.01,commonFraction:.01,functionalFraction:.1,recoverySec:5,coverage:.95},cost:{protectionPerBoard:20000,shieldPerBoard:30000,screeningPerDevice:10000,qualificationNre:30000000,engineeringNre:20000000,sparesPercent:10,protectionPowerW:.15},flight:{months:6,devices:2,events:{seu:0,sel:0,sefi:0}},taskStatus:{}};
+ return {schemaVersion:SCENARIO_SCHEMA_VERSION,lab:createLab(),title:'K-LEO 메모리 적용성 비교',mission:{orbitId:'leo888',shieldMm:2,years:5,doseMargin:2,devicesPerBoard:2,satellites:256,boardsPerSatellite:1},selectedPartId:'demo-a',parts,environments:rows,protection:{mode:'ecc',wordBits:64,scrubSec:60,mbuFraction:.01,commonFraction:.01,functionalFraction:.1,recoverySec:5,coverage:.95},cost:{protectionPerBoard:20000,shieldPerBoard:30000,screeningPerDevice:10000,qualificationNre:30000000,engineeringNre:20000000,sparesPercent:10,protectionPowerW:.15},flight:{months:6,devices:2,events:{seu:0,sel:0,sefi:0}},taskStatus:{}};
 }
 export const BASIS_LABELS={synthetic:'예시·가정',spec:'제조사 사양',test:'시험자료 입력',user:'사용자 자료'};

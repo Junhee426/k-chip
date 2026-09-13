@@ -69,15 +69,31 @@ export function resetMemory(lab,hex=lab.hex) {
   const fresh=createLab(hex);
   return {...lab,hex:fresh.hex,raw:fresh.raw,ecc:fresh.ecc,tmr:fresh.tmr};
 }
+// Shared by inspectLab() and the runCampaign() hot loop. Takes the golden reference
+// bits already decoded, and returns only the correct/detected/silent classification —
+// not the hex/mismatch rendering that a single UI inspection also needs — so a tight
+// repeated-trial loop need not re-parse the same hex string (BigInt parsing), re-run
+// full lab validation, or re-render bitsToHex() on every trial.
+function classifyAgainst(golden,lab) {
+  const decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
+  const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
+  return {
+    decoded,vote,
+    status:{
+      raw:rawCorrect?'correct':'silent',
+      ecc:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',
+      tmr:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent'
+    }
+  };
+}
 export function inspectLab(lab) {
   validateLab(lab);
-  const golden=hexToBits(lab.hex),decoded=decode72(lab.ecc),vote=vote64(lab.tmr);
-  const rawCorrect=same(golden,lab.raw),eccCorrect=same(golden,decoded.data),tmrCorrect=same(golden,vote.data);
+  const golden=hexToBits(lab.hex),{decoded,vote,status}=classifyAgainst(golden,lab);
   const mismatch=a=>a.reduce((n,b,i)=>n+Number(b!==golden[i]),0);
   return {
-    raw:{data:lab.raw,hex:bitsToHex(lab.raw),mismatch:mismatch(lab.raw),status:rawCorrect?'correct':'silent',flag:'검출회로 없음',physicalBits:64},
-    ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:decoded.flag==='uncorrectable'?'detected':eccCorrect?'correct':'silent',physicalBits:72},
-    tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:tmrCorrect?'correct':vote.disagreementBits?'detected':'silent',physicalBits:192}
+    raw:{data:lab.raw,hex:bitsToHex(lab.raw),mismatch:mismatch(lab.raw),status:status.raw,flag:'검출회로 없음',physicalBits:64},
+    ecc:{...decoded,hex:bitsToHex(decoded.data),mismatch:mismatch(decoded.data),status:status.ecc,physicalBits:72},
+    tmr:{...vote,hex:bitsToHex(vote.data),mismatch:mismatch(vote.data),status:status.tmr,physicalBits:192}
   };
 }
 export function flipBit(lab,bank,index,replica=0) {
@@ -118,10 +134,16 @@ function positions(n,k,rng) {
 export function runCampaign(lab) {
   validateLab(lab);
   const rng=seededRandom(lab.seed),baseline=createLab(lab.hex);
+  // Golden reference bits and validation only depend on lab.hex/architecture, both fixed
+  // for the whole campaign, so compute them once instead of per trial (see below).
+  const golden=hexToBits(lab.hex);
   const counts=Object.fromEntries(Object.keys(ARCHITECTURES).map(k=>[k,{correct:0,detected:0,silent:0}]));
   const flips=lab.pattern==='single'?1:lab.pattern==='triple'?3:2;
   for(let trial=0;trial<lab.trials;trial++) {
-    const memory=resetMemory(baseline);
+    // Clone the already-encoded baseline directly instead of resetMemory(), which would
+    // re-run hexToBits/encode64 (BigInt parsing + parity recomputation) on every trial even
+    // though the golden data never changes across a campaign.
+    const memory={...baseline,raw:[...baseline.raw],ecc:[...baseline.ecc],tmr:baseline.tmr.map(a=>[...a])};
     for(const bank of ['raw','ecc','tmr']) {
       if(bank==='tmr'&&lab.pattern==='common') {
         const bit=Math.floor(rng()*64);
@@ -133,8 +155,8 @@ export function runCampaign(lab) {
         }
       }
     }
-    const outcomes=inspectLab(memory);
-    for(const bank of Object.keys(counts))counts[bank][outcomes[bank].status]++;
+    const {status}=classifyAgainst(golden,memory);
+    for(const bank of Object.keys(counts))counts[bank][status[bank]]++;
   }
   return {model:'bit-fault-campaign-v1',hex:lab.hex,pattern:lab.pattern,seed:lab.seed,trials:lab.trials,counts,scope:'각 시행마다 초기화, 구조별 같은 수의 물리 비트 반전, 궤도 발생률·위성 신뢰도 아님; TMR 투표기·불일치 검출기는 이상적'};
 }

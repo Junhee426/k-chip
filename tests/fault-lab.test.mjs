@@ -82,6 +82,20 @@ test('v1.0 scenarios load, v1.1 JSON preserves exact experiment state and reprod
   assert.deepEqual(inspectLab(q.lab),inspectLab(p.lab));
   assert.equal(resetMemory(q.lab,'FFFFFFFFFFFFFFFF').hex,'FFFFFFFFFFFFFFFF');
 });
+test('large repeated-trial campaigns stay fast (regression guard for per-trial re-encoding/re-validation)',()=>{
+  // runCampaign() used to re-run hexToBits/encode64 (via resetMemory->createLab) and a full
+  // validateLab()+hexToBits (via inspectLab) on every single trial even though the golden
+  // reference and lab architecture never change within one campaign. At the maximum allowed
+  // trial count (20,000) that cost ~650ms of main-thread blocking per click in the browser.
+  // This is a loose wall-clock ceiling (not a tight micro-benchmark) to catch a regression
+  // back to that per-trial re-encoding, without being flaky on slow CI machines.
+  const lab=createLab();lab.trials=20000;lab.pattern='double';
+  const t0=performance.now();
+  const result=runCampaign(lab);
+  const elapsed=performance.now()-t0;
+  assert.ok(elapsed<400,`20,000-trial campaign took ${elapsed.toFixed(0)}ms, expected well under 400ms`);
+  for(const c of Object.values(result.counts))assert.equal(c.correct+c.detected+c.silent,20000);
+});
 test('invalid bits, malformed imports and unbounded repeat counts are rejected',()=>{
   assert.throws(()=>hexToBits('123'));assert.throws(()=>hexToBits('<img src=x>'));
   assert.throws(()=>decode72(Array(72).fill(2)));assert.throws(()=>vote64([[1]]));

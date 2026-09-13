@@ -118,6 +118,7 @@ node --test tests/*.test.mjs
 - `tests/fault-lab.test.mjs`: 단일/이중 오류 전수 검사, 공통원인, 재현성
 - `start.py`: Python 표준 라이브러리로 로컬 실행
 - `PROJECT.md`: 프로젝트 범위·사용법·개발계획
+- `SCENARIO_SCHEMA.md`: 시나리오 JSON 필드·버전 관리(후속 kleo 연동 참고)
 - `scripts/package-source.py`: 실행본 및 소스 ZIP 재생성
 - `dist/index.html`: 문서와 진입점
 - `dist/app.js`: 화면·입력·자료 입출력
@@ -128,6 +129,7 @@ node --test tests/*.test.mjs
 
 후속 `kleo` 연동은 JSON에 기록된 환경·부품·복구 모델의 명시된 범위를 유지한 채
 장비 기능중단 시나리오로 연결하세요. 원시 비트 오류를 위성 고장률로 직접 전용하지 마세요.
+시나리오 JSON의 필드·단위·버전 관리 규칙은 [SCENARIO_SCHEMA.md](SCENARIO_SCHEMA.md)에 정리했습니다.
 
 ## 실행본 재생성
 
