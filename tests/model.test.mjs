@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,SCENARIO_SCHEMA_VERSION} from '../dist/data.js';
-import {evaluate,findEnvironment,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
+import {evaluate,findEnvironment,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,csvCell,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -159,6 +159,44 @@ test('findEnvironment: a component with no environment row of its own gets the c
  const r=evaluate(p,'demo-d','leo888');
  assert.equal(r.missionDose,40);
  assert.equal(r.soft,null); // no SEU data was invented for demo-d
+});
+test('null and 0 are never conflated in CSV cells or a round trip (code review #3)',()=>{
+ assert.equal(csvCell(null),'""');
+ assert.equal(csvCell(0),'"0"');
+ assert.notEqual(csvCell(null),csvCell(0));
+ const p=createProject();
+ const row=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ row.selPerDeviceDay=0; // a confirmed-zero rate
+ const other=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-b');
+ other.selPerDeviceDay=null; // an unmeasured rate
+ const csv=environmentCsv(p);
+ assert.ok(csv.includes(',"0",')); // the confirmed 0 is written literally
+ const q=importEnvironmentCsv(p,csv);
+ const back=q.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ const backOther=q.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-b');
+ assert.equal(back.selPerDeviceDay,0); // round trips as 0, not null
+ assert.equal(backOther.selPerDeviceDay,null); // round trips as null, not 0
+});
+test('evaluate() results distinguish unknown (null) from a confirmed 0 in every total exposed to the UI/CSV export (code review #3)',()=>{
+ const p=createProject();
+ const row=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ // Confirmed zeros throughout: SEU count 0, SEFI/SEL confirmed 0 too.
+ row.seuPerBitDay=0;row.sefiPerDeviceDay=0;row.selPerDeviceDay=0;
+ const zeroed=evaluate(p);
+ assert.equal(zeroed.missionDose,40); // dose is known and nonzero
+ assert.equal(zeroed.soft.uncorrectablePerDay,0);
+ assert.equal(zeroed.sefi,0);assert.notEqual(zeroed.sefi,null);
+ assert.equal(zeroed.sel,0);assert.notEqual(zeroed.sel,null);
+ assert.equal(zeroed.functional,0);assert.notEqual(zeroed.functional,null);
+ assert.equal(zeroed.downtime,0);assert.notEqual(zeroed.downtime,null);
+ // Now make the dose itself unknown by mismatching shielding: every dose-derived
+ // field must read null, never fall back to 0.
+ p.mission.shieldMm=2.5;
+ const unknownDose=evaluate(p);
+ assert.equal(unknownDose.missionDose,null);
+ assert.notEqual(unknownDose.missionDose,0);
+ assert.equal(unknownDose.requiredDose,null);
+ assert.equal(unknownDose.tidRatio,null);
 });
 test('scenario schema version is a single shared source of truth (kleo integration contract)',()=>{
  // data.js and model.js must agree on SCENARIO_SCHEMA_VERSION (re-exported from model.js
