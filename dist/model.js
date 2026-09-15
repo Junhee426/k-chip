@@ -13,8 +13,14 @@ export function findEnvironment(project,partId,orbitId=project.mission.orbitId){
  const orbit=ORBITS.find(x=>x.id===orbitId);
  const rows=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.shieldMm-project.mission.shieldMm)<1e-8&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
  const exact=rows.find(x=>x.partId===partId);
- const dose=exact||rows.find(x=>x.partId==='*')||rows[0];
- return {dose: dose||null,rate:exact||null};
+ const wildcard=rows.find(x=>x.partId==='*');
+ // Dose (annualTidKrad) lookup and error-rate lookup are kept strictly separate:
+ // a component-specific row with no recorded dose falls back to the common/wildcard
+ // row for the same orbit+shielding (a null component dose must not shadow a known
+ // common dose), but `rate` always stays tied to `exact` and is never borrowed from
+ // the wildcard row or from any other component's row.
+ const dose=(exact&&valid(exact.annualTidKrad)?exact:null)||wildcard||exact||null;
+ return {dose,rate:exact||null};
 }
 export function softErrorModel(rate,bits,devices,p){
  if(rate===null||rate===undefined)return null;

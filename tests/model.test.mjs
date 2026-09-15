@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,SCENARIO_SCHEMA_VERSION} from '../dist/data.js';
-import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
+import {evaluate,findEnvironment,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -117,6 +117,48 @@ test('when SEU itself is unknown, both the total and the confirmed-only field ar
  assert.equal(r.functionalConfirmed,null);
  assert.equal(r.downtime,null);
  assert.equal(r.downtimeConfirmed,null);
+});
+test('findEnvironment: a null component-specific dose falls back to the common/wildcard dose, 8 krad/yr over 5 yr = 40 krad total (code review #2)',()=>{
+ const p=createProject();
+ const own=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ assert.equal(own.annualTidKrad,8); // shared baseline value for this orbit+shield
+ own.annualTidKrad=null; // component-specific dose becomes unknown
+ p.environments.push({orbitId:'leo888',altitudeKm:888,inclinationDeg:42,shieldMm:2,annualTidKrad:8,partId:'*',seuPerBitDay:null,sefiPerDeviceDay:null,selPerDeviceDay:null,basis:'user',source:'공통 선량 자료',model:'공통',epoch:'공통',rateKind:'raw',notes:''});
+ validateProject(p);
+ const {dose,rate}=findEnvironment(p,'demo-a','leo888');
+ assert.equal(dose.annualTidKrad,8); // fell back to the wildcard row, not left null
+ assert.equal(dose.partId,'*');
+ assert.equal(rate.partId,'demo-a'); // demo-a's own error-rate row, never the wildcard row
+ assert.equal(rate.seuPerBitDay,own.seuPerBitDay); // its own SEU rate is untouched by the dose fallback
+ const r=evaluate(p,'demo-a','leo888');
+ assert.equal(r.missionDose,8*p.mission.years);
+ assert.equal(r.missionDose,40);
+});
+test('findEnvironment: error rates are never borrowed from the wildcard row or another component, only the dose is shared',()=>{
+ const p=createProject();
+ const a=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ const b=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-b');
+ a.seuPerBitDay=1.23e-7;
+ p.environments.push({orbitId:'leo888',altitudeKm:888,inclinationDeg:42,shieldMm:2,annualTidKrad:8,partId:'*',seuPerBitDay:9.99e-3,sefiPerDeviceDay:9.99e-3,selPerDeviceDay:9.99e-3,basis:'user',source:'공통',model:'공통',epoch:'공통',rateKind:'raw',notes:''});
+ validateProject(p);
+ const {rate}=findEnvironment(p,'demo-a','leo888');
+ assert.equal(rate.seuPerBitDay,1.23e-7); // demo-a's own rate
+ assert.notEqual(rate.seuPerBitDay,b.seuPerBitDay); // never demo-b's rate
+ assert.notEqual(rate.seuPerBitDay,9.99e-3); // never the wildcard row's rate
+});
+test('findEnvironment: a component with no environment row of its own gets the common dose but a null rate, never another component\'s rate',()=>{
+ const p=createProject();
+ const clone=structuredClone(p.parts.find(x=>x.id==='demo-a'));
+ clone.id='demo-d';clone.name='demo-d (no own environment row)';
+ p.parts.push(clone);
+ p.environments.push({orbitId:'leo888',altitudeKm:888,inclinationDeg:42,shieldMm:2,annualTidKrad:8,partId:'*',seuPerBitDay:null,sefiPerDeviceDay:null,selPerDeviceDay:null,basis:'user',source:'공통',model:'공통',epoch:'공통',rateKind:'raw',notes:''});
+ validateProject(p);
+ const {dose,rate}=findEnvironment(p,'demo-d','leo888');
+ assert.equal(dose.annualTidKrad,8);
+ assert.equal(rate,null);
+ const r=evaluate(p,'demo-d','leo888');
+ assert.equal(r.missionDose,40);
+ assert.equal(r.soft,null); // no SEU data was invented for demo-d
 });
 test('scenario schema version is a single shared source of truth (kleo integration contract)',()=>{
  // data.js and model.js must agree on SCENARIO_SCHEMA_VERSION (re-exported from model.js
