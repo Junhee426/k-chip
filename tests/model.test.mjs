@@ -75,6 +75,49 @@ test('unsafe or inconsistent imported data is rejected',()=>{
  const s=createProject();s.environments.push({...s.environments[0]});assert.throws(()=>validateProject(s),/중복/);
  assert.throws(()=>parseCsv('"not closed'));assert.ok(toCsv([['=HYPERLINK("x")']]).includes("'=HYPERLINK"));
 });
+test('a confirmed-zero SEU count plus an unknown SEFI rate must report the total as unknown, not a confirmed 0 (code review #1)',()=>{
+ const p=createProject();
+ const row=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ row.seuPerBitDay=0; // SEU count is confirmed zero
+ row.sefiPerDeviceDay=null; // SEFI is unmeasured, not confirmed zero
+ const r=evaluate(p);
+ assert.equal(r.soft.uncorrectablePerDay,0);
+ assert.equal(r.sefi,null);
+ // Grand totals must be null ("unknown"), never silently forced to 0 by the unknown SEFI.
+ assert.equal(r.functional,null);
+ assert.equal(r.recoverable,null);
+ assert.equal(r.downtime,null);
+ assert.equal(r.unhandled,null);
+ // The confirmed/known-only contribution (from SEU alone) stays visible as a separate,
+ // genuinely-zero field even though the grand total above is unknown.
+ assert.equal(r.functionalConfirmed,0);
+ assert.equal(r.recoverableConfirmed,0);
+ assert.equal(r.downtimeConfirmed,0);
+ assert.equal(r.unhandledConfirmed,0);
+ assert.ok(r.reasons.includes('SEFI 시험·발생률'));
+});
+test('when SEFI is known, the grand total is confirmed + SEFI and is never null',()=>{
+ const p=createProject();
+ const row=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ row.seuPerBitDay=0;row.sefiPerDeviceDay=0.0005;
+ const r=evaluate(p);
+ assert.equal(r.functionalConfirmed,0);
+ assert.ok(r.functional>0);
+ assert.equal(r.functional,r.functionalConfirmed+r.sefi);
+ assert.equal(typeof r.downtime,'number');
+ assert.ok(r.downtime>=0);
+});
+test('when SEU itself is unknown, both the total and the confirmed-only field are null',()=>{
+ const p=createProject();
+ const row=p.environments.find(x=>x.orbitId==='leo888'&&x.shieldMm===2&&x.partId==='demo-a');
+ row.seuPerBitDay=null;row.sefiPerDeviceDay=0.0005;
+ const r=evaluate(p);
+ assert.equal(r.soft,null);
+ assert.equal(r.functional,null);
+ assert.equal(r.functionalConfirmed,null);
+ assert.equal(r.downtime,null);
+ assert.equal(r.downtimeConfirmed,null);
+});
 test('scenario schema version is a single shared source of truth (kleo integration contract)',()=>{
  // data.js and model.js must agree on SCENARIO_SCHEMA_VERSION (re-exported from model.js
  // for convenience) so a saved scenario JSON and the validator that reads it back never
