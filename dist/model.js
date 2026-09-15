@@ -13,8 +13,14 @@ export function findEnvironment(project,partId,orbitId=project.mission.orbitId){
  const orbit=ORBITS.find(x=>x.id===orbitId);
  const rows=project.environments.filter(x=>x.orbitId===orbitId&&Math.abs(x.shieldMm-project.mission.shieldMm)<1e-8&&Math.abs(x.altitudeKm-orbit.altitudeKm)<.01&&Math.abs(x.inclinationDeg-orbit.inclinationDeg)<.01);
  const exact=rows.find(x=>x.partId===partId);
- const dose=exact||rows.find(x=>x.partId==='*')||rows[0];
- return {dose: dose||null,rate:exact||null};
+ const wildcard=rows.find(x=>x.partId==='*');
+ // Dose (annualTidKrad) lookup and error-rate lookup are kept strictly separate:
+ // a component-specific row with no recorded dose falls back to the common/wildcard
+ // row for the same orbit+shielding (a null component dose must not shadow a known
+ // common dose), but `rate` always stays tied to `exact` and is never borrowed from
+ // the wildcard row or from any other component's row.
+ const dose=(exact&&valid(exact.annualTidKrad)?exact:null)||wildcard||exact||null;
+ return {dose,rate:exact||null};
 }
 export function softErrorModel(rate,bits,devices,p){
  if(rate===null||rate===undefined)return null;
@@ -42,9 +48,19 @@ export function evaluate(project,partId=project.selectedPartId,orbitId=project.m
  const replicas=p.mode==='tmr'?3:1;
  const sefi=valid(rate?.sefiPerDeviceDay)?rate.sefiPerDeviceDay*m.devicesPerBoard*replicas:null;
  const sel=valid(rate?.selPerDeviceDay)?rate.selPerDeviceDay*m.devicesPerBoard*replicas:null;
- const functional=soft?soft.uncorrectablePerDay*p.functionalFraction+(sefi??0):null;
+ // functionalConfirmed is the known-only contribution from SEU-driven soft errors (it stays a
+ // real number, including 0, whenever `soft` itself is known — independent of SEFI). The grand
+ // total `functional` must NOT silently treat an unknown SEFI rate as zero: a null SEFI means
+ // "not measured", not "none observed", so a missing SEFI rate makes the total unknown even
+ // when the SEU contribution alone is a confirmed 0. Callers that still want the confirmed
+ // partial figure (e.g. to show "at least this much is known") can read the *Confirmed fields.
+ const functionalConfirmed=soft?soft.uncorrectablePerDay*p.functionalFraction:null;
+ const functional=functionalConfirmed===null||sefi===null?null:functionalConfirmed+sefi;
+ const recoverableConfirmed=functionalConfirmed===null?null:functionalConfirmed*p.coverage;
  const recoverable=functional===null?null:functional*p.coverage;
+ const downtimeConfirmed=recoverableConfirmed===null?null:86400*(-Math.expm1(-recoverableConfirmed*p.recoverySec/86400));
  const downtime=recoverable===null?null:86400*(-Math.expm1(-recoverable*p.recoverySec/86400));
+ const unhandledConfirmed=functionalConfirmed===null?null:functionalConfirmed*(1-p.coverage);
  const unhandled=functional===null?null:functional*(1-p.coverage);
  const synthetic=part.tidBasis==='synthetic'||dose?.basis==='synthetic'||rate?.basis==='synthetic';
  const reasons=[];
@@ -55,7 +71,7 @@ export function evaluate(project,partId=project.selectedPartId,orbitId=project.m
  if(sefi===null)reasons.push('SEFI 시험·발생률');
  if(sel===null)reasons.push('SEL/파괴성 효과 검토');
  if(!part.lot||part.lot==='미확인')reasons.push('구매 로트 및 시험조건');
- return {part,dose,rate,missionDose,requiredDose,tidRatio,soft,sefi,sel,functional,recoverable,downtime,unhandled,synthetic,reasons,cost:costModel(project,part)};
+ return {part,dose,rate,missionDose,requiredDose,tidRatio,soft,sefi,sel,functional,functionalConfirmed,recoverable,recoverableConfirmed,downtime,downtimeConfirmed,unhandled,unhandledConfirmed,synthetic,reasons,cost:costModel(project,part)};
 }
 export function costModel(project,part,mode=project.protection.mode){
  const {mission:m,cost:c}=project,replicas=mode==='tmr'?3:1;
