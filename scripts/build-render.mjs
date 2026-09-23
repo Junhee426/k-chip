@@ -51,7 +51,8 @@ const sourceFiles = [
   'README.md', 'PROJECT.md', 'RENDER_DEPLOYMENT.md', 'RENDER_RELEASE.md',
   'SCENARIO_SCHEMA.md', 'SERVICE_EXPANSION_REVIEW.md',
   'package.json', 'render.yaml', '.node-version', '.gitignore', 'start.py',
-  'scripts/build-render.mjs', 'scripts/package-source.py',
+  'scripts/build-render.mjs', 'scripts/bench-campaign.mjs', 'scripts/package-source.py',
+  '.github/workflows/ci.yml',
   ...publicNames.map(name => `dist/${name}`),
   ...readdirSync(join(root, 'tests')).filter(name => name.endsWith('.test.mjs'))
     .sort().map(name => `tests/${name}`),

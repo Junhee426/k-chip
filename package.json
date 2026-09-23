@@ -8,6 +8,7 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "build": "node scripts/build-render.mjs",
+    "bench": "node scripts/bench-campaign.mjs",
     "start": "python3 start.py",
     "preview": "python3 -m http.server 8000 --bind 127.0.0.1 --directory build"
   }

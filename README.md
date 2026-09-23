@@ -110,6 +110,10 @@ node --test tests/*.test.mjs
 비트 단위·수량, 선량 여유, 자료 미확보 처리, 차폐 불일치, ECC/TMR 극한조건,
 비용 산술, 0건 관측 상한, CSV 왕복·유효성 검사를 포함합니다.
 
+반복 실험 속도(20,000회)는 기기 성능에 좌우되므로 테스트와 분리해 `npm run bench`로 확인합니다.
+GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 테스트·빌드를 실행하고,
+커밋된 `dist/kleo-chip-standalone.html`이 현재 소스로 만든 결과와 같은지 검사합니다.
+
 ## 구조
 
 - `dist/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
