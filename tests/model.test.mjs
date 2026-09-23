@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,SCENARIO_SCHEMA_VERSION} from '../dist/data.js';
-import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,removePart,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
+import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,removePart,secdedCheckBits,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -95,4 +95,17 @@ test('removing a part drops only its own environment rows and keeps a valid sele
  assert.throws(()=>removePart(p,'missing'),/찾을 수 없습니다/);
  let one=createProject();for(const x of one.parts.slice(1).map(x=>x.id))one=removePart(one,x);
  assert.throws(()=>removePart(one,one.parts[0].id),/최소 1개/);
+});
+test('ECC exposure includes the stored SECDED check bits',()=>{
+ assert.equal(secdedCheckBits(64),8);assert.equal(secdedCheckBits(32),7);assert.equal(secdedCheckBits(8),5);
+ const p={...createProject().protection,mode:'ecc',mbuFraction:0,scrubSec:60};
+ const r=softErrorModel(1e-7,16777216,2,p);
+ assert.equal(r.storedWordBits,72);assert.ok(Math.abs(r.physicalRawPerDay/r.rawPerDay-72/64)<1e-12);
+ const words=16777216*2/64,cycles=86400/60;
+ const expected=words*cycles*atLeastTwoPoisson(1e-7*72/cycles);
+ assert.ok(Math.abs(r.uncorrectablePerDay/expected-1)<1e-12);
+ // Independent double errors scale with the square of exposed bits: ~(72/64)^2 of a data-only model.
+ const dataOnly=words*cycles*atLeastTwoPoisson(1e-7*64/cycles);
+ assert.ok(Math.abs(r.uncorrectablePerDay/dataOnly-(72/64)**2)<1e-3);
+ const none=softErrorModel(1e-7,16777216,2,{...p,mode:'none'});assert.equal(none.physicalRawPerDay,none.rawPerDay);
 });
