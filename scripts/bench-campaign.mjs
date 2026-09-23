@@ -2,7 +2,7 @@
  * Kept out of `npm test` so slow machines cannot fail the correctness suite.
  * runCampaign() used to re-encode and re-validate the lab on every trial (~650 ms);
  * the median of several runs should stay well under the limit below. */
-import { createLab, runCampaign } from '../dist/fault-lab.js';
+import { createLab, runCampaign } from '../src/fault-lab.js';
 
 const LIMIT_MS = Number(process.env.BENCH_LIMIT_MS || 400);
 const lab = createLab();

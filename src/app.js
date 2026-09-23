@@ -1,0 +1,879 @@
+import { createProject, ORBITS, SOURCES, BASIS_LABELS } from './data.js';
+import {
+  evaluate,
+  validateProject,
+  removePart,
+  softErrorModel,
+  verificationTasks,
+  zeroEventUpperRate,
+  environmentCsv,
+  importEnvironmentCsv,
+  toCsv,
+  CSV_COLUMNS,
+  DAYS_PER_YEAR,
+} from './model.js';
+
+import {
+  createLab,
+  validateLab,
+  resetMemory,
+  flipBit,
+  injectPreset,
+  scrubMemory,
+  inspectLab,
+  runCampaign,
+  ARCHITECTURES,
+  PATTERNS,
+} from './fault-lab.js';
+import { labPage } from './lab-view.js';
+
+let project = createProject(),
+  page = 'lab',
+  toastTimer,
+  campaign = null;
+const app = document.querySelector('#app');
+const h = v =>
+  String(v ?? '').replace(
+    /[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+const nf = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
+const fmt = (v, d = 2) =>
+  v === null || v === undefined
+    ? '자료 부족'
+    : v === Infinity
+      ? '∞'
+      : v !== 0 && Math.abs(v) < 0.001
+        ? v.toExponential(2)
+        : new Intl.NumberFormat('ko-KR', { maximumFractionDigits: d }).format(v);
+const won = v =>
+  v === null
+    ? '견적 필요'
+    : v >= 1e8
+      ? `${fmt(v / 1e8)}억`
+      : v >= 1e4
+        ? `${fmt(v / 1e4)}만`
+        : fmt(v);
+const modeLabel = { none: '보호 없음', ecc: 'ECC + 스크러빙', tmr: 'TMR + 재동기화' };
+const icons = {
+  chip: 'M8 8h8v8H8zM9 3v5m6-5v5M9 16v5m6-5v5M3 9h5m-5 6h5m8-6h5m-5 6h5',
+  chart: 'M4 4v16h17M8 15v-4m5 4V7m5 8v-6',
+  layers: 'm12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',
+  shield: 'M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Zm-4 9 3 3 5-6',
+  check: 'M9 5h11M9 12h11M9 19h11M3 5h1M3 12h1M3 19h1',
+  cost: 'M4 5h16v14H4zM4 9h16M8 13h2m4 0h2M8 16h2m4 0h2',
+  data: 'M5 3h10l4 4v14H5zM14 3v5h5M8 12h8m-8 4h8',
+  download: 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
+  upload: 'M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5',
+  info: 'M12 8h.01M12 11v5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
+  arrow: 'M5 12h14m-6-6 6 6-6 6',
+  plus: 'M12 4v16M4 12h16',
+  print: 'M7 8V3h10v5M6 17H3V9h18v8h-3M7 14h10v7H7z',
+  book: 'M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15',
+};
+const icon = name =>
+  `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[name] || icons.chip}"/></svg>`;
+const badge = (text, type = '') => `<span class="badge ${type}">${h(text)}</span>`;
+const sourceLink = s =>
+  /^https?:\/\//i.test(s)
+    ? `<a href="${h(s)}" target="_blank" rel="noopener noreferrer">원문 자료 ↗</a>`
+    : h(s);
+const btn = (text, action, ico = '', cls = '') =>
+  `<button type="button" class="btn ${cls}" data-action="${action}">${ico ? icon(ico) : ''}${h(text)}</button>`;
+const selected = () => project.parts.find(p => p.id === project.selectedPartId);
+const getPath = path => path.split('.').reduce((o, k) => o[k], project);
+function input(path, label, opts = {}) {
+  const value = opts.value !== undefined ? opts.value : getPath(path);
+  return `<label><span>${h(label)}</span><input data-path="${h(path)}" aria-label="${h(label)}" type="${opts.type || 'number'}" value="${h(value === null ? '' : value)}" ${opts.min !== undefined ? `min="${opts.min}"` : ''} ${opts.max !== undefined ? `max="${opts.max}"` : ''} step="${opts.step || 'any'}" ${opts.nullable ? 'data-nullable="true"' : ''} ${opts.percent ? 'data-percent="true"' : ''}>${opts.help ? `<small class="help">${h(opts.help)}</small>` : ''}</label>`;
+}
+function partInput(key, label, opts = {}) {
+  const p = selected();
+  return input(`part.${key}`, label, {
+    ...opts,
+    value: opts.value !== undefined ? opts.value : p[key],
+  });
+}
+function selectPath(path, label, options) {
+  return `<label><span>${h(label)}</span><select data-path="${h(path)}" data-string="true" aria-label="${h(label)}">${options.map(([value, text]) => `<option value="${h(value)}" ${getPath(path) === value ? 'selected' : ''}>${h(text)}</option>`).join('')}</select></label>`;
+}
+function partPicker() {
+  return `<select class="part-select" data-path="selectedPartId" data-string="true" aria-label="평가 부품 선택">${project.parts.map(p => `<option value="${h(p.id)}" ${p.id === project.selectedPartId ? 'selected' : ''}>${h(p.name)}</option>`).join('')}</select>`;
+}
+function card(title, body, extra = '', sub = '') {
+  return `<section class="card"><div class="card-head"><div><h2>${title}</h2>${sub ? `<p class="card-sub">${sub}</p>` : ''}</div>${extra}</div>${body}</section>`;
+}
+function metric(label, value, unit, foot, cls = '') {
+  return `<div class="card metric"><div class="metric-label">${h(label)}</div><div class="metric-value ${cls}">${h(value)}${unit ? `<small>${h(unit)}</small>` : ''}</div><div class="metric-foot">${h(foot)}</div></div>`;
+}
+function notice(text, type = '') {
+  return `<div class="notice ${type}">${icon('info')}<p>${text}</p></div>`;
+}
+function kv(label, value) {
+  return `<div class="kv"><span>${h(label)}</span><b>${value}</b></div>`;
+}
+function table(headers, rows, note = '') {
+  return `<div class="table-wrap"><table><thead><tr>${headers.map(x => `<th scope="col">${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>${note ? `<p class="table-note">${note}</p>` : ''}`;
+}
+function controls() {
+  return `<section class="card controls" aria-label="공통 임무 조건">${selectPath(
+    'mission.orbitId',
+    '목표 궤도',
+    ORBITS.map(o => [o.id, o.label]),
+  )}${input('mission.years', '임무 수명 (년)', { min: 0.01, max: 50, step: 0.5 })}${input('mission.shieldMm', 'Al 등가 차폐 (mm)', { min: 0.01, max: 100, step: 0.5, help: '일치하는 차폐 자료만 사용' })}${input('mission.doseMargin', '선량 설계 여유계수', { min: 1, max: 20, step: 0.5 })}</section>`;
+}
+function evidenceNotice(r) {
+  if (r.synthetic)
+    return notice(
+      '<strong>예시 데이터로 분석 중</strong> 환경 수치와 가상 부품은 계산 흐름을 확인하기 위한 합성 자료입니다. 실제 궤도 예측·부품 선정에는 출처가 있는 환경·시험자료를 가져오세요.',
+    );
+  return notice(
+    '<strong>입력자료 기반 예비 평가</strong> 수치 여유와 자료 공백을 함께 검토하세요. 최종 적용 판단에는 로트·동작조건·파괴성 효과의 근거가 필요합니다.',
+    'info',
+  );
+}
+
+const pages = {
+  lab: [
+    '반도체 설계 실험실',
+    'BIT-LEVEL DESIGN LAB',
+    '비트를 직접 뒤집고, 오류 정정·검출·복구 동작을 비교합니다.',
+    'layers',
+  ],
+  overview: [
+    '분석 대시보드',
+    'MISSION OVERVIEW',
+    '목표 궤도에서의 선량·오류·비용을 함께 비교합니다.',
+    'chart',
+  ],
+  parts: [
+    '부품·시험자료',
+    'COMPONENT EVIDENCE',
+    '제품 사양, 시험자료와 사용자 가정을 구분해 관리합니다.',
+    'chip',
+  ],
+  protection: [
+    '보호·복구 설계',
+    'FAULT MITIGATION',
+    '오류정정·복구 가정을 바꾸고 잔존 사건과 중단시간을 비교합니다.',
+    'shield',
+  ],
+  verification: [
+    '검증계획',
+    'VERIFICATION PLAN',
+    '부품의 근거를 정리하고 Space-MaCS 이후의 검증 공백을 확인합니다.',
+    'check',
+  ],
+  cost: [
+    '비용·양산 비교',
+    'COST COMPARISON',
+    '소자·보호설계·차폐·시험·개발비를 동일 물량에서 비교합니다.',
+    'cost',
+  ],
+  data: [
+    '자료·계산방법',
+    'DATA & METHODS',
+    '분석자료를 가져오고 계산 가정과 출처를 확인합니다.',
+    'data',
+  ],
+};
+// render() replaces #app wholesale, so remember which control had focus (by its
+// data-* identity and position among same-identity controls) and put it back.
+const FOCUS_KEYS = [
+  'path',
+  'labConfig',
+  'task',
+  'partBasis',
+  'labView',
+  'labBit',
+  'page',
+  'orbit',
+  'part',
+  'mode',
+  'action',
+];
+function focusState() {
+  const el = document.activeElement;
+  if (!el || el === app || !app.contains(el)) return null;
+  const key = FOCUS_KEYS.find(k => el.dataset[k] !== undefined);
+  const attrs = key ? Object.entries(el.dataset) : el.name ? [['name', el.name]] : null;
+  if (!attrs) return null;
+  const selector =
+    el.tagName.toLowerCase() +
+    attrs
+      .map(([k, v]) =>
+        k === 'name'
+          ? `[name="${CSS.escape(v)}"]`
+          : `[data-${k.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}="${CSS.escape(v)}"]`,
+      )
+      .join('');
+  let range = null;
+  try {
+    if (typeof el.selectionStart === 'number') range = [el.selectionStart, el.selectionEnd];
+  } catch {}
+  return { selector, index: [...app.querySelectorAll(selector)].indexOf(el), range };
+}
+function restoreFocus(state) {
+  if (!state) return;
+  const el = app.querySelectorAll(state.selector)[state.index];
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  if (state.range)
+    try {
+      el.setSelectionRange(...state.range);
+    } catch {}
+}
+function render() {
+  project.lab ??= createLab();
+  validateProject(project);
+  const r = evaluate(project),
+    p = pages[page];
+  const focus = focusState();
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">${icon('chip')}<div><strong>K-LEO <span style="color:#5be3b6">CHIP</span></strong><small>SPACE ELECTRONICS LAB</small></div></div><div class="nav-caption">분석 워크스페이스</div><nav class="nav" aria-label="분석 메뉴">${Object.entries(
+    pages,
+  )
+    .map(
+      ([id, x]) =>
+        `<button type="button" data-page="${id}" class="${id === page ? 'active' : ''}" ${id === page ? 'aria-current="page"' : ''}>${icon(x[3])}${x[0]}</button>`,
+    )
+    .join(
+      '',
+    )}</nav><div class="side-bottom"><p>궤도 조건부터<br>반도체 적용·검증까지</p><span class="version">V1.1.0 · DESIGN LAB</span></div></aside><div class="main-wrap"><header class="topbar"><div class="crumb">K-LEO / <strong>우주반도체 적용성</strong></div><div class="top-actions">${btn('불러오기', 'load', 'upload')}${btn('시나리오 저장', 'save', 'download')}${btn('보고서 인쇄', 'print', 'print')}</div></header><main class="main" id="main"><div class="page-heading"><div><p class="eyebrow">${p[1]}</p><h1>${p[0]}</h1><p class="subheading">${p[2]}</p></div>${page === 'lab' ? (campaign ? btn('실험 CSV', 'lab-csv', 'download') : btn('궤도별 분석', 'go-overview', 'arrow')) : btn('결과 CSV', 'results', 'download')}</div>${page === 'lab' ? '' : controls() + evidenceNotice(r)}${{ lab: () => labPage(project.lab, campaign, { card, btn, badge, table, fmt, h, notice, metric }), overview: overview, parts: partsPage, protection: protectionPage, verification: verificationPage, cost: costPage, data: dataPage }[page](r)}<footer class="footer"><span>K-LEO CHIP · ${h(project.title)}</span><span>메모리 설계·적용성 · <a href="./kleo-chip-v1.1.0-source.zip" download>소스 코드 다운로드</a></span></footer></main></div></div>`;
+  restoreFocus(focus);
+}
+function doseChart() {
+  const rs = ORBITS.map(o => evaluate(project, project.selectedPartId, o.id));
+  const limit =
+    selected().tidKrad === null ? null : selected().tidKrad / project.mission.doseMargin;
+  const vals = rs.map(r => r.missionDose).filter(v => v !== null);
+  if (!vals.length)
+    return '<div class="empty"><strong>환경자료가 필요합니다</strong>목표 궤도·차폐 조건에 맞는 연간 선량을 가져오세요.</div>';
+  const max = Math.max(...vals, limit || 0, 1) * 1.15,
+    w = 760,
+    ht = 245,
+    left = 55,
+    right = 25,
+    top = 20,
+    bottom = 38,
+    plotW = w - left - right,
+    plotH = ht - top - bottom;
+  const x = t => left + (plotW * t) / project.mission.years,
+    y = d => ht - bottom - (d / max) * plotH,
+    colors = ['#7a60af', '#087f76', '#4772c6'];
+  const grid = Array.from({ length: 5 }, (_, i) => {
+    const v = (max * i) / 4;
+    return `<line x1="${left}" x2="${w - right}" y1="${y(v)}" y2="${y(v)}" stroke="#e7edf1"/><text x="${left - 10}" y="${y(v) + 4}" text-anchor="end">${fmt(v, 1)}</text>`;
+  }).join('');
+  const xs = Array.from({ length: 6 }, (_, i) => {
+    const t = (project.mission.years * i) / 5;
+    return `<text x="${x(t)}" y="${ht - 12}" text-anchor="middle">${fmt(t, 1)}년</text>`;
+  }).join('');
+  const lines = rs
+    .map((r, i) =>
+      r.missionDose === null
+        ? ''
+        : `<path d="M ${x(0)} ${y(0)} L ${x(project.mission.years)} ${y(r.missionDose)}" stroke="${colors[i]}" stroke-width="${ORBITS[i].id === project.mission.orbitId ? 3.5 : 2}" fill="none"/><circle cx="${x(project.mission.years)}" cy="${y(r.missionDose)}" r="4" fill="${colors[i]}"/>`,
+    )
+    .join('');
+  return `<div class="chart-wrap"><svg class="chart" viewBox="0 0 ${w} ${ht}" role="img" aria-label="임무기간에 비례한 궤도별 누적선량 비교. 정확한 값은 아래 비교표에 있습니다."><text x="${left}" y="12" class="axis-title">krad(Si)</text>${grid}${xs}${limit === null ? '' : `<line x1="${left}" x2="${w - right}" y1="${y(limit)}" y2="${y(limit)}" stroke="#bf8235" stroke-dasharray="6 4"/><text x="${left + 12}" y="${Math.max(18, y(limit) - 8)}" style="fill:#946428">부품 TID ÷ 여유계수</text>`}${lines}</svg></div><p class="chart-caption">연간 평균 선량을 임무기간에 비례 적용한 비교입니다. 태양활동의 시간 변화는 계산하지 않습니다.</p>`;
+}
+function orbitRows() {
+  return ORBITS.map(o => {
+    const r = evaluate(project, project.selectedPartId, o.id);
+    return `<tr class="${o.id === project.mission.orbitId ? 'selected' : ''}"><td><button class="btn quiet" data-orbit="${o.id}" aria-label="${h(o.label)} 선택" style="padding:0;min-height:32px">${h(o.label)}${o.id === project.mission.orbitId ? '<span class="selected-tag">선택</span>' : ''}</button><span class="secondary">${h(o.name)}</span></td><td class="number">${fmt(r.missionDose)}</td><td class="number">${fmt(r.requiredDose)}</td><td class="number">${fmt(r.tidRatio)}${r.tidRatio === null ? '' : ' ×'}</td><td class="number">${fmt(r.soft?.rawPerDay)}</td><td>${badge(r.synthetic ? '예시' : r.dose ? '입력자료' : '자료 부족', r.synthetic ? 'amber' : r.dose ? 'blue' : '')}</td></tr>`;
+  });
+}
+function overview(r) {
+  const part = r.part;
+  return `<div class="metrics">${metric('임무 누적선량', fmt(r.missionDose), r.missionDose === null ? '' : 'krad(Si)', `${project.mission.years}년 · ${project.mission.shieldMm} mm Al 등가`)}${metric('TID 수치 여유', fmt(r.tidRatio), r.tidRatio === null ? '' : '배', '부품 TID / 여유계수 적용 요구량', r.tidRatio !== null && r.tidRatio < 1 ? 'text-red' : '')}${metric('원시 비트 오류', fmt(r.soft?.rawPerDay), r.soft ? '회/일' : '', `논리 장비 1대 · 소자 ${project.mission.devicesPerBoard}개 기준`)}${metric('제작·검증 비용', won(r.cost.total), r.cost.total === null ? '' : '원', `예비품 포함 장비 ${fmt(r.cost.boards, 0)}대 · 가정 비용`)}</div><div class="grid-two">${card('누적선량 비교', doseChart(), `<div class="legend"><span><i class="swatch" style="background:#7a60af"></i>500 km</span><span><i class="swatch"></i>888 km</span><span><i class="swatch" style="background:#4772c6"></i>1,280 km</span></div>`)}${card('평가 중인 반도체', `<div class="card-body"><div class="pill-row">${badge(part.grade)}${badge(BASIS_LABELS[part.tidBasis], part.tidBasis === 'synthetic' ? 'amber' : 'blue')}</div>${partPicker()}<p class="part-description">${h(part.vendor)} · ${fmt(part.densityBits / 1048576)} Mibit</p>${kv('TID 근거', `${fmt(part.tidKrad)} krad(Si)`)}${kv('보호설계', h(modeLabel[project.protection.mode]))}${kv('추가 확인 항목', `${r.reasons.length}개`)}<div class="spaced">${btn('부품 자료 검토', 'go-parts', 'arrow')}</div></div>`)}</div><div class="spaced">${card('같은 부품, 세 가지 임무환경', table(['궤도', '누적선량<br>krad(Si)', '요구선량<br>krad(Si)', 'TID 여유', '원시 오류<br>회/일', '환경 근거'], orbitRows(), 'TID 여유가 1배 이상이어도 SEE·구매 로트·동작조건을 별도 검증해야 합니다. 오류 횟수는 위성 고장확률이 아닙니다.'))}</div><div class="grid-equal">${card('검증이 필요한 근거', `<div class="card-body"><div class="pill-row">${r.reasons.length ? r.reasons.map(x => badge(x, 'amber')).join('') : badge('입력 항목 확보 · 내용 검토 필요', 'blue')}</div><p class="input-note">${h(part.notes)}</p><div class="spaced">${btn('검증계획 보기', 'go-verification', 'arrow')}</div></div>`)}${card('현재 분석조건', `<div class="card-body">${kv('환경 모델', h(r.dose?.model || '자료 부족'))}${kv('시기·태양활동', h(r.dose?.epoch || '자료 부족'))}${kv('환경 출처', sourceLink(r.dose?.source || '자료 부족'))}${kv('부품 출처', sourceLink(part.tidSource))}</div>`)}</div>`;
+}
+function partsPage(r) {
+  const rows = project.parts.map(p => {
+    const ev = evaluate(project, p.id);
+    return `<tr class="${p.id === project.selectedPartId ? 'selected' : ''}"><td><button class="btn quiet" data-part="${h(p.id)}" style="padding:0;text-align:left;white-space:normal">${h(p.name)}</button><span class="secondary">${h(p.vendor)} · ${h(p.id)}</span></td><td>${h(p.grade)}</td><td class="number">${fmt(p.densityBits / 1048576)}</td><td class="number">${fmt(p.tidKrad)}</td><td>${badge(BASIS_LABELS[p.tidBasis], p.tidBasis === 'synthetic' ? 'amber' : 'blue')}</td><td>${ev.soft ? badge('입력 있음', 'blue') : badge('자료 부족')}</td></tr>`;
+  });
+  return `${card(`부품 라이브러리 <span class="count">${project.parts.length}</span>`, table(['부품', '분류', 'Mibit', 'TID<br>krad(Si)', 'TID 근거', '목표궤도 SEU'], rows, '공개 제품 사양 3종과 합성 부품 3종을 포함합니다. 공개 사양은 구매 로트 시험성적서와 구분합니다.'), btn('사용자 부품 추가', 'add-part', 'plus'))}<div class="grid-equal">${card(
+    h(r.part.name),
+    `<div class="card-body"><div class="field-grid">${partInput('name', '부품명', { type: 'text' })}${partInput('vendor', '제조사', { type: 'text' })}${partInput('densityBits', '메모리 비트 수', { min: 1, step: 1, help: '16 Mibit = 16,777,216 bit' })}${partInput('tidKrad', 'TID 근거값 (krad(Si))', { nullable: true, min: 0, help: '미확보 시 비워두세요' })}${partInput('lot', '제조 로트·리비전', { type: 'text' })}<label><span>TID 근거 유형</span><select data-part-basis="true">${Object.entries(
+      BASIS_LABELS,
+    )
+      .map(
+        ([v, n]) => `<option value="${v}" ${r.part.tidBasis === v ? 'selected' : ''}>${n}</option>`,
+      )
+      .join(
+        '',
+      )}</select></label><div class="full">${partInput('tidSource', 'TID 자료 제목 또는 URL', { type: 'text' })}</div><label class="full"><span>시험조건·판정기준·제한사항</span><textarea data-path="part.notes">${h(r.part.notes)}</textarea></label></div><p class="input-note">TID 값·용량·출처를 수정하면 근거 유형이 ‘사용자 자료’로 전환됩니다. 원래 출처와 변경 내용을 함께 기록하세요.</p></div>`,
+    `<div class="button-row">${btn('복제', 'clone-part', 'plus')}${btn('삭제', 'delete-part', '', 'danger')}</div>`,
+  )}${card('자료 해석', `<div class="card-body explain"><p><strong>제조사 사양</strong>은 제품군의 공개 성능입니다. 선량률·바이어스·온도·어닐링·실패 기준과 구매 등급을 확인해야 합니다.</p><p><strong>SEU</strong>는 목표궤도와 차폐 조건에 해당하는 부품별 원시 비트 오류율이 있어야 계산합니다. 내장 EDAC 적용 후 오류율은 V1.0 보호모델에 다시 넣지 않습니다.</p><p><strong>SEL 시험 LET</strong> 하나로 SEU 곡선이나 모든 임무의 내성을 추정하지 않습니다. 미관측 시험의 입자 플루언스와 동작조건을 확인하세요.</p><p class="spaced">${sourceLink(r.part.tidSource)}</p><div class="spaced">${btn('환경·오류율 자료 입력', 'go-data', 'arrow')}</div></div>`)}</div>`;
+}
+function protectionPage(r) {
+  const p = project.protection;
+  const alternatives = ['none', 'ecc', 'tmr'].map(mode => {
+    const pr = structuredClone(project);
+    pr.protection.mode = mode;
+    return { mode, r: evaluate(pr) };
+  });
+  const max = Math.max(...alternatives.map(a => a.r.soft?.uncorrectablePerDay || 0), 1e-15);
+  const bars = alternatives
+    .map(
+      a =>
+        `<div class="bar-row"><span>${h(modeLabel[a.mode])}</span><div class="bar"><i style="width:${Math.min(100, ((a.r.soft?.uncorrectablePerDay || 0) / max) * 100)}%;background:${a.mode === p.mode ? '#087f76' : '#98b8c6'}"></i></div><b>${fmt(a.r.soft?.uncorrectablePerDay)}</b></div>`,
+    )
+    .join('');
+  return `<div class="grid-equal" style="margin-top:0">${card('보호설계 가정', `<div class="card-body">${partPicker()}<div class="segmented" aria-label="보호설계 선택">${['none', 'ecc', 'tmr'].map(mode => `<button data-mode="${mode}" class="${p.mode === mode ? 'active' : ''}" aria-pressed="${p.mode === mode}">${mode === 'none' ? '보호 없음' : mode === 'ecc' ? 'ECC' : 'TMR'}</button>`).join('')}</div><div class="field-grid spaced">${input('mission.devicesPerBoard', '장비당 소자 수', { min: 1, step: 1 })}${input('protection.wordBits', '보호 워드 길이 (bit)', { min: 8, max: 4096, step: 1 })}${input('protection.scrubSec', '점검·복구 주기 (초)', { min: 0.01, max: 86400 })}${input('protection.recoverySec', '기능 복구시간 (초)', { min: 0, max: 86400 })}${input('protection.mbuFraction', 'ECC: 동시 다중비트 비율 (%)', { value: p.mbuFraction * 100, percent: true, min: 0, max: 100, help: '같은 워드 내 2-bit 사건 가정' })}${input('protection.commonFraction', 'TMR: 공통원인 비율 (%)', { value: p.commonFraction * 100, percent: true, min: 0, max: 100 })}${input('protection.functionalFraction', '잔존 오류의 기능 영향 (%)', { value: p.functionalFraction * 100, percent: true, min: 0, max: 100 })}${input('protection.coverage', '기능 오류 검출·복구 성공 (%)', { value: p.coverage * 100, percent: true, min: 0, max: 100 })}</div><p class="input-note">보호효과·기능 영향·성공률은 사용자가 검증해야 하는 설계 가정입니다.</p></div>`)}${card('보호 후 잔존 사건 비교', `<div class="card-body"><p class="text-muted small">논리 장비 1대 · 사건/일 · 선형 축</p>${r.soft ? bars : '<div class="empty"><strong>원시 비트 오류율이 필요합니다</strong>부품·궤도에 맞는 raw SEU 자료를 입력하세요.</div>'}${kv('선택 설계 원시 비트 오류', `${fmt(r.soft?.physicalRawPerDay)} 회/일`)}${kv('보호 후 잔존 사건', `${fmt(r.soft?.uncorrectablePerDay)} 회/일`)}${kv('모델상 복구 중단시간', `${fmt(r.downtime, 5)} 초/일`)}${kv('미복구 기능 사건', `${fmt(r.unhandled)} 회/일`)}${kv('장비 소비전력', `${fmt(r.cost.powerW)} W`)}<p class="input-note">복구 중단시간은 검출·복구 가능한 SEU와 입력된 SEFI만 반영합니다. SEL·영구고장·부품 수명·위성망 가용도는 포함하지 않습니다.</p></div>`)}</div><div class="spaced">${card('계산에 적용한 가정', `<div class="card-body explain"><p><strong>ECC:</strong> 독립 오류가 동일 워드·주기 안에 2회 이상 쌓이는 확률과, 같은 워드의 동시 2-bit 사건을 합산합니다. 주기마다 워드가 정상화된다고 가정합니다. 오류 위치의 실제 상관관계·인터리빙 효과는 시험자료로 보완해야 합니다.</p><p><strong>TMR:</strong> 3개 복제본 중 2개 이상에 오류가 생기는 경우를 계산하고 공통원인 사건을 더합니다. 투표기는 이상적이며, 주기마다 재동기화된다고 가정합니다. 소자 수·전력·반도체 구매비는 3배 구성을 반영합니다.</p><p><strong>기능 복구:</strong> 비트 오류, 잔존 사건, 기능 중단을 구분합니다. 정상화 실패와 파괴성 고장은 중단시간 그래프에 숨겨 합산하지 않습니다.</p></div>`)}</div>`;
+}
+const EVENT_TYPES = { seu: 'SEU', sel: 'SEL', sefi: 'SEFI' };
+function verificationPage(r) {
+  const tasks = verificationTasks(r, project),
+    done = tasks.filter(t => t.status === '완료').length;
+  const bounds = Object.fromEntries(
+    Object.keys(EVENT_TYPES).map(k => [
+      k,
+      project.flight.events[k] === 0
+        ? zeroEventUpperRate(project.flight.months, project.flight.devices)
+        : null,
+    ]),
+  );
+  const zeroTypes = Object.keys(EVENT_TYPES).filter(k => project.flight.events[k] === 0);
+  const flightDose = evaluate(project, project.selectedPartId, 'sso500').dose?.annualTidKrad;
+  const flightTotal =
+    flightDose === undefined || flightDose === null
+      ? null
+      : (flightDose * project.flight.months) / 12;
+  const rows = ORBITS.slice(1).map(o => {
+    const ev = evaluate(project, project.selectedPartId, o.id);
+    return `<tr><td>${h(o.label)}</td><td class="number">${fmt(flightTotal)}</td><td class="number">${fmt(ev.missionDose)}</td><td>${badge('추가 환경·효과 검증', 'amber')}</td></tr>`;
+  });
+  const eventRows = Object.entries(EVENT_TYPES).map(
+    ([k, label]) =>
+      `<tr><td>${label}</td><td class="number">${fmt(project.flight.events[k], 0)}</td><td class="number">${bounds[k] === null ? '—' : fmt(bounds[k])}</td></tr>`,
+  );
+  return `<div class="metrics">${metric('검증 작업', tasks.length, '항목', '환경·TID·SEE·복구·추적성')}${metric('진행상태 완료', done, '항목', '완료 표시는 담당자 기록이며 승인 아님')}${metric('관측 소자·기간', `${project.flight.devices} × ${project.flight.months}`, '개·월', 'Space-MaCS 비교 시나리오')}${metric('미관측 사건유형', `${zeroTypes.length} / 3`, '유형', zeroTypes.length ? zeroTypes.map(k => EVENT_TYPES[k]).join('·') + ' 0건 관측' : '전 유형 사건 관측됨')}</div>${card('시제기·양산 적용 검증계획', `<div class="tasks">${tasks.map(t => `<div class="task">${badge(t.category, t.priority === '높음' ? 'amber' : '')}<div><h3>${h(t.title)}</h3><p>${h(t.detail)}</p></div><label><span class="sr-only">${h(t.title)} 진행상태</span><select data-task="${t.id}">${['계획', '진행', '완료'].map(s => `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></label></div>`).join('')}</div>`, btn('계획 CSV', 'tasks', 'download'))}<div class="grid-equal">${card('Space-MaCS 관측조건', `<div class="card-body"><div class="field-grid">${input('flight.months', '관측기간 (개월)', { min: 0.01, max: 120 })}${input('flight.devices', '관측 소자 수', { min: 1, step: 1 })}${input('flight.events.seu', 'SEU 관측 사건 수', { min: 0, step: 1 })}${input('flight.events.sel', 'SEL 관측 사건 수', { min: 0, step: 1 })}${input('flight.events.sefi', 'SEFI 관측 사건 수', { min: 0, step: 1 })}</div>${table(['사건유형', '관측 사건', '0건 시 95% 상한<br>회/소자·일'], eventRows)}<p class="input-note">사건유형별로 분리해 기록합니다. 완전 검출·일정 사건율의 포아송 모형을 가정합니다. 사건이 1건 이상인 유형은 0건 상한을 표시하지 않습니다.</p><div class="spaced">${notice('0건 관측은 고장률 0 또는 면역성을 의미하지 않습니다. 산출한 상한은 같은 관측환경의 값이며, 목표궤도에 직접 전용할 수 없습니다.', 'info')}</div></div>`)}${card('목표 임무와 검증 범위 비교', table(['목표 궤도', '500 km 검증 선량<br>krad(Si)', '목표 임무 선량<br>krad(Si)', '검토'], rows, '500 km SSO의 경사각은 97.4° 가정입니다. 동일 선량만으로 입자 에너지·SEE·열조건의 동등성이 성립하지 않습니다.'))}</div>`;
+}
+function costPage(r) {
+  const rows = project.parts.map(p => {
+    const ev = evaluate(project, p.id);
+    return `<tr class="${p.id === project.selectedPartId ? 'selected' : ''}"><td>${h(p.name)}<span class="secondary">${h(p.grade)}</span></td><td class="number">${p.unitCostKrw === null ? '견적 필요' : `${fmt(p.unitCostKrw, 0)}원`}</td><td class="number">${fmt(ev.cost.bom, 0)}</td><td class="number">${won(ev.cost.total)}${ev.cost.total === null ? '' : '원'}</td><td class="number">${fmt(ev.cost.powerW)}</td><td>${badge(p.tidBasis === 'synthetic' ? '예시 단가' : p.unitCostKrw === null ? '견적 필요' : '사용자 입력', p.tidBasis === 'synthetic' ? 'amber' : '')}</td></tr>`;
+  });
+  return `<div class="metrics">${metric('분석 위성 수', fmt(project.mission.satellites, 0), '기', '제작 물량 비교 입력')}${metric('예비품 포함 장비', fmt(r.cost.boards, 0), '대', `예비품 ${project.cost.sparesPercent}%`)}${metric('반복 제작비', won(r.cost.recurring), r.cost.recurring === null ? '' : '원', '소자·선별·보호·차폐 합산')}${metric('비반복 시험·개발비', won(r.cost.nre), '원', '설계·방사선 검증 가정')}</div><div class="grid-equal">${card('물량·부품 단가', `<div class="card-body">${partPicker()}<div class="field-grid">${input('mission.satellites', '위성 수 (기)', { min: 1, step: 1 })}${input('mission.boardsPerSatellite', '위성당 장비 수 (대)', { min: 1, step: 1 })}${input('mission.devicesPerBoard', '장비당 논리 소자 수 (개)', { min: 1, step: 1 })}${input('cost.sparesPercent', '예비품 비율 (%)', { min: 0, max: 200 })}${partInput('unitCostKrw', '소자 단가 (원)', { min: 0, nullable: true, help: '공개 가격 미확보 시 견적 입력' })}${partInput('powerW', '소자 동작전력 (W)', { min: 0, nullable: true })}</div><p class="input-note">보호설계는 ${h(modeLabel[project.protection.mode])}. TMR 선택 시 논리 소자당 실제 소자 3개를 반영합니다. 가상 부품 가격은 예시입니다.</p></div>`)}${card('보호·시험·개발비 가정', `<div class="card-body"><div class="field-grid">${input('cost.protectionPerBoard', '장비당 보호설계 제작비 (원)', { min: 0 })}${input('cost.shieldPerBoard', '장비당 차폐 제작비 (원)', { min: 0 })}${input('cost.screeningPerDevice', '소자당 선별시험비 (원)', { min: 0 })}${input('cost.protectionPowerW', '보호설계 추가전력 (W)', { min: 0 })}${input('cost.qualificationNre', '방사선·인증 시험비 (원)', { min: 0 })}${input('cost.engineeringNre', '설계·소프트웨어 개발비 (원)', { min: 0 })}</div><p class="input-note">실제 견적·공정자료로 갱신하세요. 차폐 두께 변경은 비용·질량을 자동 추정하지 않습니다. 본 비교에는 발사·운용·교체비가 포함되지 않습니다.</p></div>`)}</div><div class="spaced">${card('동일 물량·보호설계의 부품 대안', table(['부품', '소자 단가', '장비 1대 제작비<br>원', '총 제작·검증비', '장비 전력<br>W', '비용 근거'], rows, '실제 부품의 가격·동작전력이 없으면 합계를 산출하지 않습니다. 비용만으로 적용 가능 여부를 판정하지 않습니다.'))}</div>`;
+}
+function envEditor(r) {
+  const rate = r.rate,
+    dose = r.dose;
+  return `<form id="env-editor"><div class="field-grid"><label><span>연간 TID (krad(Si)/년)</span><input name="dose" type="number" min="0" step="any" value="${h(dose?.annualTidKrad ?? '')}" placeholder="자료 없으면 비움"></label><label><span>원시 SEU (회/bit/일)</span><input name="seu" type="number" min="0" step="any" value="${h(rate?.seuPerBitDay ?? '')}" placeholder="자료 없으면 비움"></label><label><span>SEFI (회/소자/일)</span><input name="sefi" type="number" min="0" step="any" value="${h(rate?.sefiPerDeviceDay ?? '')}"></label><label><span>SEL (회/소자/일)</span><input name="sel" type="number" min="0" step="any" value="${h(rate?.selPerDeviceDay ?? '')}"></label><label><span>근거 유형</span><select name="basis"><option value="synthetic" ${dose?.basis === 'synthetic' ? 'selected' : ''}>예시·가정</option><option value="user" ${dose?.basis === 'user' ? 'selected' : ''}>사용자 해석자료</option><option value="test" ${dose?.basis === 'test' ? 'selected' : ''}>시험자료와 연결된 해석</option></select></label><label><span>오류율 기준</span><select name="rateKind"><option value="raw" ${rate?.rateKind !== 'effective' ? 'selected' : ''}>원시 비트 오류율 (raw)</option><option value="effective" ${rate?.rateKind === 'effective' ? 'selected' : ''}>보호 후 출력율 (effective)</option></select></label><label class="full"><span>자료 제목·파일명·URL</span><input name="source" required value="${h(dose?.source || '')}"></label><label><span>환경 모델·차폐 형상</span><input name="model" required value="${h(dose?.model || '')}"></label><label><span>분석기간·태양활동 조건</span><input name="epoch" required value="${h(dose?.epoch || '')}"></label></div><div class="spaced"><button class="btn primary" type="submit">선택 조건에 적용</button></div><p class="input-note">${h(ORBITS.find(o => o.id === project.mission.orbitId).label)} · ${project.mission.shieldMm} mm · ${h(r.part.name)}에 적용합니다. 선량은 같은 환경의 모든 부품에 공유됩니다. 고도·차폐 사이 보간은 하지 않습니다.</p></form>`;
+}
+function dataPage(r) {
+  return `<div class="grid-equal" style="margin-top:0">${card('선택 조건의 환경·오류율 입력', `<div class="card-body">${partPicker()}${envEditor(r)}</div>`)}<div class="stack">${card('분석자료 가져오기·저장', `<div class="card-body"><p class="explain">시나리오 JSON에는 임무·부품·환경·보호설계·비용·검증 상태와 설계 실험의 비트 상태·난수 시드가 저장됩니다. 반복 실험 결과는 같은 설정으로 다시 실행해 재현합니다. 가져온 자료는 이 브라우저에서 계산하며 서버로 업로드하지 않습니다.</p><div class="download-box"><p><strong>환경·오류율 CSV</strong><br>SPENVIS 원본 전체를 직접 읽는 형식이 아닙니다. 외부 해석 결과를 정규화 양식의 단위에 맞춰 정리하세요.</p><div class="button-row">${btn('빈 양식', 'template', 'download')}${btn('현재 환경 CSV', 'environment', 'download')}${btn('CSV 가져오기', 'import-env', 'upload', 'primary')}</div></div><p class="small text-muted">CSV 가져오기는 전체 환경자료를 교체합니다. 변경 전 시나리오 JSON을 저장할 수 있습니다. 빈 수치는 ‘미확보’, 0은 실제 0으로 처리합니다.</p><div class="button-row spaced">${btn('JSON 저장', 'save', 'download')}${btn('JSON 불러오기', 'load', 'upload')}${btn('예시 시나리오 복원', 'reset')}</div></div>`)}${card('자료 현황', `<div class="card-body">${kv('부품 자료', `${project.parts.length}개`)}${kv('환경·부품 조건', `${project.environments.length}행`)}${kv('현재 시나리오', h(project.title))}<div class="spaced">${input('title', '시나리오 이름', { type: 'text' })}</div></div>`)}</div></div><div class="grid-equal">${card('계산방법과 적용 범위', `<div class="card-body"><details class="method" open><summary>선량과 TID 여유</summary><div class="explain"><p>일치하는 고도·경사각·차폐의 연간 평균 선량만 사용합니다. 임무 선량 = 연간 선량 × 수명, 요구선량 = 임무 선량 × 설계 여유계수입니다. TID 수치 여유 = 부품 TID 근거값 / 요구선량입니다.</p><p>방사선 수송·태양활동 시계열을 자체 계산하지 않습니다. 차폐를 두껍게 했을 때의 효과는 해당 조건의 외부 자료가 있어야 비교합니다. 초기 합성 수치에는 물리적 예측 의미가 없습니다.</p></div></details><details class="method"><summary>메모리 오류·보호 모델</summary><div class="explain"><p>외부 계산된 per-bit-day 원시 SEU율에 소자 용량과 장비당 소자 수를 곱합니다. 양성자/중이온 단면적의 스펙트럼 적분은 SPENVIS 등 외부 도구에서 수행한 결과를 사용합니다.</p><p>ECC는 포아송 동일 워드 다중오류 확률과 동시 2-bit 사건을 합산합니다. TMR은 독립 복제본의 다수결 실패와 공통원인 항을 사용합니다. 모든 보호 워드가 점검주기마다 정상화된다고 가정합니다.</p><p>재시작 중단시간은 검출·복구 성공 사건의 포아송 점유모형입니다. 기능 영향 비율·복구 성공률은 사용자가 검증해야 합니다. SEE 전체의 신뢰도나 위성 고장확률을 계산하지 않습니다.</p></div></details><details class="method"><summary>0건 관측·95% 사건율 상한</summary><div class="explain"><p>0건 관측의 단측 95% 상한 = −ln(0.05) / (관측 소자 수 × 관측일수). 일정 사건율, 소자 간 독립성과 완전 검출을 가정합니다. 같은 관측환경에만 적용되며 다른 궤도에 직접 전용하지 않습니다.</p></div></details><details class="method"><summary>설계 실험과 예비평가의 범위</summary><div class="explain"><p>64비트 SECDED·TMR 설계 실험과 메모리 적용성 예비평가 도구입니다. 트랜지스터 TCAD, 열해석, DDD 수명모델, FPGA 전체 상태 해석, 임무 인증, 위성망 운용 가용도는 포함하지 않습니다. DDD·SEB·SEGR 등은 검증 공백으로 별도 평가해야 합니다.</p><p>시나리오 저장본에는 모든 입력자료가 포함됩니다. 이 페이지를 새로고침하면 저장하지 않은 입력은 예시 시나리오로 초기화됩니다.</p></div></details></div>`)}${card('방법론·제품 사양 출처', `<div class="card-body"><ul class="source-list">${SOURCES.map(s => `<li><a href="${h(s.url)}" target="_blank" rel="noopener noreferrer">${h(s.name)} ↗</a><p>${h(s.note)}</p></li>`).join('')}</ul><p class="input-note">제품 자료 확인 기준: 2026-09-06. 조건·등급·개정판과 구매 로트는 적용 전에 재확인하세요.</p></div>`)}</div>`;
+}
+
+function labCsv() {
+  if (!campaign) throw Error('반복 실험을 먼저 실행하세요.');
+  const c = campaign;
+  const rows = [
+    [
+      'model',
+      'data_hex',
+      'architecture',
+      'pattern',
+      'trials',
+      'seed',
+      'correct',
+      'detected_stop_required',
+      'silent_corruption',
+      'correct_fraction',
+      'scope',
+    ],
+    ...Object.entries(c.counts).map(([k, n]) => [
+      c.model,
+      c.hex,
+      ARCHITECTURES[k],
+      PATTERNS[c.pattern],
+      c.trials,
+      c.seed,
+      n.correct,
+      n.detected,
+      n.silent,
+      n.correct / c.trials,
+      c.scope,
+    ]),
+  ];
+  download('kleo-chip-fault-campaign.csv', toCsv(rows), 'text/csv;charset=utf-8');
+  notify('패턴·시드·범위를 포함한 실험 결과를 저장했습니다.');
+}
+function printLabReport() {
+  const lab = project.lab,
+    outcomes = inspectLab(lab),
+    labels = {
+      correct: '정상 데이터 확보',
+      detected: '검출·출력 사용 중단',
+      silent: '미검출 손상',
+    };
+  document.querySelector('#print-root').innerHTML =
+    `<h1>K-LEO 반도체 보호설계 실험</h1><p>${h(project.title)} · V1.1.0 · ${h(new Date().toLocaleString('ko-KR'))}</p><p>64비트 기준 데이터: ${h(lab.hex)}. 수동 오류 주입 상태는 시나리오 JSON으로 재현할 수 있습니다.</p>${table(
+      ['구조', '저장 bit', '회로 계산 데이터', '판정', '오류 bit'],
+      Object.entries(outcomes).map(
+        ([k, v]) =>
+          `<tr><td>${h(ARCHITECTURES[k])}</td><td>${v.physicalBits}</td><td>${v.hex}</td><td>${labels[v.status]}</td><td>${v.mismatch}</td></tr>`,
+      ),
+    )}<h2>반복 오류 주입</h2>${
+      campaign
+        ? `<p>패턴 ${h(PATTERNS[campaign.pattern])} · ${campaign.trials}회 · 시드 ${campaign.seed} · 기준값 ${campaign.hex}</p>${table(
+            ['구조', '정상 데이터', '검출·중단 필요', '미검출 손상'],
+            Object.entries(campaign.counts).map(
+              ([k, n]) =>
+                `<tr><td>${h(ARCHITECTURES[k])}</td><td>${n.correct}</td><td>${n.detected}</td><td>${n.silent}</td></tr>`,
+            ),
+          )}`
+        : '<p>실행한 반복 실험이 없습니다.</p>'
+    }<h2>해석 범위</h2><p>확장 해밍 SECDED (72,64), 비트별 TMR 다수결과 불일치 검출을 계산합니다. TMR 투표기·불일치 검출기는 이상적입니다. 스크러빙은 회로가 계산한 값만 다시 씁니다. 원본 기준값을 이용한 복구는 하지 않습니다.</p><p>반복 실험은 매 시행 초기화 후 구조별 같은 개수의 서로 다른 물리 비트를 반전합니다. 상관 패턴은 TMR의 두 복제본 동일 비트, 다른 구조는 서로 다른 두 물리 비트입니다. 시간·궤도 방사선 발생률·물리 레이아웃·위성 신뢰도는 계산하지 않습니다. 결과 비율을 궤도 발생률에 직접 곱하지 마세요.</p><p>참고: NASA FPGA Mitigation Strategies for Critical Space Applications (2018), https://ntrs.nasa.gov/citations/20180006778</p>`;
+  window.print();
+}
+function notify(msg, error = false) {
+  const t = document.querySelector('#toast');
+  clearTimeout(toastTimer);
+  t.textContent = msg;
+  t.hidden = false;
+  t.className = error ? 'error' : '';
+  toastTimer = setTimeout(() => (t.hidden = true), 5500);
+}
+function update(fn) {
+  const draft = structuredClone(project);
+  fn(draft);
+  validateProject(draft);
+  project = draft;
+  render();
+}
+function download(name, body, type) {
+  const blob = new Blob([body], { type }),
+    url = URL.createObjectURL(blob),
+    a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const saveProject = () => {
+  download('kleo-chip-scenario.json', JSON.stringify(project, null, 2), 'application/json');
+  notify('시나리오 JSON을 저장했습니다. 다시 불러와 이어서 분석할 수 있습니다.');
+};
+function resultCsv() {
+  const rows = [
+    [
+      'scenario',
+      'part_id',
+      'part_name',
+      'orbit',
+      'shield_mm',
+      'years',
+      'mission_tid_krad_si',
+      'required_tid_krad_si',
+      'tid_margin_ratio',
+      'logical_raw_bit_upsets_day',
+      'residual_events_day',
+      'modeled_recovery_downtime_sec_day',
+      'unrecovered_functional_events_day',
+      'protection',
+      'cost_krw',
+      'environment_basis',
+      'part_tid_basis',
+      'environment_source',
+      'part_tid_source',
+      'unresolved',
+      'scope',
+    ],
+  ];
+  for (const p of project.parts)
+    for (const o of ORBITS) {
+      const r = evaluate(project, p.id, o.id);
+      rows.push([
+        project.title,
+        p.id,
+        p.name,
+        o.label,
+        project.mission.shieldMm,
+        project.mission.years,
+        r.missionDose,
+        r.requiredDose,
+        r.tidRatio,
+        r.soft?.rawPerDay,
+        r.soft?.uncorrectablePerDay,
+        r.downtime,
+        r.unhandled,
+        modeLabel[project.protection.mode],
+        r.cost.total,
+        r.dose?.basis,
+        p.tidBasis,
+        r.dose?.source,
+        p.tidSource,
+        r.reasons.join(' / '),
+        '예비평가; 합성자료는 실제 예측 아님; 중단시간은 검출·복구 가능한 SEU/입력된 SEFI만',
+      ]);
+    }
+  download('kleo-chip-results.csv', toCsv(rows), 'text/csv;charset=utf-8');
+  notify('입력 근거와 자료 공백을 포함한 결과 CSV를 저장했습니다.');
+}
+function printReport() {
+  const r = evaluate(project),
+    o = ORBITS.find(x => x.id === project.mission.orbitId);
+  document.querySelector('#print-root').innerHTML =
+    `<h1>K-LEO 우주반도체 적용성 검토</h1><p class="print-meta">${h(project.title)} · ${h(new Date().toLocaleString('ko-KR'))}</p>${evidenceNotice(r)}<p>평가 부품: <strong>${h(r.part.name)}</strong> · ${h(o.label)} · 수명 ${project.mission.years}년 · Al 등가 차폐 ${project.mission.shieldMm}mm · 선량 여유계수 ${project.mission.doseMargin}</p><h2>궤도별 수치 비교</h2>${table(['궤도', '누적선량<br>krad(Si)', '요구선량<br>krad(Si)', 'TID 여유', '원시 오류<br>회/일', '환경 근거'], orbitRows())}<h2>보호·비용 가정</h2><p>보호설계 ${h(modeLabel[project.protection.mode])}, 점검주기 ${project.protection.scrubSec}초, 복구시간 ${project.protection.recoverySec}초, 검출·복구 성공 ${fmt(project.protection.coverage * 100)}%, 기능 영향 ${fmt(project.protection.functionalFraction * 100)}%.</p><p>모델상 복구 중단 ${fmt(r.downtime, 5)}초/일 · 미복구 기능 사건 ${fmt(r.unhandled)}회/일. 영구고장·SEL·위성망 가용도 제외.</p><p>제작·검증비 ${won(r.cost.total)}${r.cost.total === null ? '' : '원'} · 예비품 포함 ${r.cost.boards}대. 금액은 입력 가정이며 발사·운용·교체비 제외.</p><h2>검증계획</h2><ul>${verificationTasks(
+      r,
+      project,
+    )
+      .map(t => `<li><strong>[${h(t.status)}] ${h(t.title)}</strong><br>${h(t.detail)}</li>`)
+      .join(
+        '',
+      )}</ul><h2>근거·제한사항</h2><p>환경: ${h(r.dose?.source || '자료 부족')}<br>모델·시기: ${h(r.dose?.model || '자료 부족')} / ${h(r.dose?.epoch || '자료 부족')}<br>부품 TID: ${h(r.part.tidSource)} (${h(BASIS_LABELS[r.part.tidBasis])})<br>시험조건: ${h(r.part.notes)}</p><p>추가 확인: ${h(r.reasons.join(' / '))}</p><p>고도·차폐 보간 없이 일치하는 연간 환경자료를 사용합니다. TID 수치 여유 충족은 부품 채택 승인이 아니며, 비트 오류율은 위성 고장확률이 아닙니다.</p>`;
+  window.print();
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  try {
+    if (b.dataset.labView) {
+      update(p => (p.lab.view = b.dataset.labView));
+      app.querySelector(`[data-lab-view="${b.dataset.labView}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    if (b.dataset.labBit !== undefined) {
+      update(
+        p =>
+          (p.lab = flipBit(
+            p.lab,
+            b.dataset.bank,
+            Number(b.dataset.labBit),
+            Number(b.dataset.copy),
+          )),
+      );
+      app
+        .querySelector(
+          `[data-lab-bit="${b.dataset.labBit}"][data-bank="${b.dataset.bank}"][data-copy="${b.dataset.copy}"]`,
+        )
+        ?.focus({ preventScroll: true });
+      return;
+    }
+    if (b.dataset.page) {
+      page = b.dataset.page;
+      render();
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    if (b.dataset.orbit) {
+      update(p => (p.mission.orbitId = b.dataset.orbit));
+      return;
+    }
+    if (b.dataset.part) {
+      update(p => (p.selectedPartId = b.dataset.part));
+      return;
+    }
+    if (b.dataset.mode) {
+      update(p => (p.protection.mode = b.dataset.mode));
+      return;
+    }
+    const a = b.dataset.action;
+    if (!a) return;
+    if (a.startsWith('go-')) {
+      page = a.slice(3);
+      render();
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    if (['lab-single', 'lab-double', 'lab-common', 'lab-triple'].includes(a)) {
+      update(p => (p.lab = injectPreset(p.lab, a.slice(4))));
+      return;
+    }
+    if (a === 'lab-clear') {
+      update(p => (p.lab = resetMemory(p.lab)));
+      return;
+    }
+    if (a === 'lab-scrub') {
+      const before = inspectLab(project.lab)[project.lab.view];
+      update(p => (p.lab = scrubMemory(p.lab)));
+      notify(
+        project.lab.view === 'ecc' && before.flag === 'uncorrectable'
+          ? '정정 불가 신호: 저장값을 덮어쓰지 않았습니다.'
+          : inspectLab(project.lab)[project.lab.view].mismatch
+            ? '회로 계산값을 썼지만 원본과 다른 데이터가 남아 있습니다.'
+            : '회로가 계산한 정상값으로 저장 비트를 복구했습니다.',
+      );
+      return;
+    }
+    if (a === 'lab-run') {
+      campaign = runCampaign(project.lab);
+      render();
+      notify('반복 오류 주입 실험을 완료했습니다.');
+      return;
+    }
+    if (a === 'lab-csv') {
+      labCsv();
+      return;
+    }
+    if (a === 'save') saveProject();
+    if (a === 'load') document.querySelector('#project-file').click();
+    if (a === 'results') resultCsv();
+    if (a === 'environment')
+      download('kleo-chip-environment.csv', environmentCsv(project), 'text/csv;charset=utf-8');
+    if (a === 'import-env') document.querySelector('#environment-file').click();
+    if (a === 'template') {
+      const rows = [
+        CSV_COLUMNS,
+        ...ORBITS.map(o => [
+          o.id,
+          o.altitudeKm,
+          o.inclinationDeg,
+          project.mission.shieldMm,
+          '',
+          project.selectedPartId,
+          '',
+          '',
+          '',
+          'user',
+          '분석자료 제목 또는 URL',
+          '환경 모델과 차폐 형상',
+          '분석 시기와 태양활동',
+          'raw',
+        ]),
+      ];
+      download('kleo-chip-environment-template.csv', toCsv(rows), 'text/csv;charset=utf-8');
+    }
+    if (a === 'tasks') {
+      const rows = [
+        ['category', 'task', 'priority', 'status', 'details', 'part', 'orbit'],
+        ...verificationTasks(evaluate(project), project).map(t => [
+          t.category,
+          t.title,
+          t.priority,
+          t.status,
+          t.detail,
+          selected().name,
+          project.mission.orbitId,
+        ]),
+      ];
+      download('kleo-chip-verification.csv', toCsv(rows), 'text/csv;charset=utf-8');
+    }
+    if (a === 'print') {
+      if (page === 'lab') printLabReport();
+      else printReport();
+    }
+    if (a === 'reset') {
+      if (
+        window.confirm('현재 입력을 예시 시나리오로 되돌릴까요? 저장하지 않은 변경은 없어집니다.')
+      ) {
+        project = createProject();
+        campaign = null;
+        render();
+        notify('예시 시나리오로 복원했습니다.');
+      }
+    }
+    if (a === 'delete-part') {
+      const name = selected().name;
+      if (window.confirm(`'${name}' 부품과 이 부품 전용 환경·오류율 자료를 삭제할까요?`)) {
+        project = removePart(project, project.selectedPartId);
+        render();
+        notify('부품을 삭제했습니다.');
+      }
+    }
+    if (a === 'add-part' || a === 'clone-part') {
+      update(p => {
+        const original = structuredClone(p.parts.find(x => x.id === p.selectedPartId));
+        const id = 'user-' + crypto.randomUUID().slice(0, 8);
+        const part =
+          a === 'clone-part'
+            ? { ...original, id, name: original.name + ' · 복사', tidBasis: 'user' }
+            : {
+                ...original,
+                id,
+                name: '사용자 메모리',
+                vendor: '사용자 입력',
+                grade: '미분류',
+                tidKrad: null,
+                tidBasis: 'user',
+                tidSource: '미확보',
+                source: '사용자 입력',
+                notes: '시험조건·근거자료를 입력하세요.',
+                lot: '미확인',
+                unitCostKrw: null,
+                powerW: null,
+              };
+        p.parts.push(part);
+        p.selectedPartId = id;
+      });
+      notify('부품을 추가했습니다. 환경·오류율 자료는 별도로 연결하세요.');
+    }
+  } catch (error) {
+    notify(error.message, true);
+  }
+});
+
+// Chrome fires change after focus leaves the field but before it reaches the next
+// one; handle it on the next task so render() can restore focus to the Tab target.
+app.addEventListener('change', e => {
+  const el = e.target;
+  setTimeout(() => {
+    try {
+      if (el.dataset.labConfig) {
+        const key = el.dataset.labConfig;
+        if (!['pattern', 'trials', 'seed'].includes(key)) return;
+        const value =
+          key === 'pattern' ? el.value : el.value.trim() === '' ? NaN : Number(el.value);
+        const next = structuredClone(project.lab);
+        next[key] = value;
+        validateLab(next);
+        campaign = null;
+        update(p => (p.lab = next));
+        return;
+      }
+      if (el.dataset.task) {
+        update(p => (p.taskStatus[el.dataset.task] = el.value));
+        return;
+      }
+      if (el.dataset.partBasis) {
+        update(p => (p.parts.find(x => x.id === p.selectedPartId).tidBasis = el.value));
+        return;
+      }
+      if (!el.dataset.path) return;
+      const path = el.dataset.path;
+      let value =
+        el.type === 'number'
+          ? el.value === '' && el.dataset.nullable
+            ? null
+            : Number(el.value)
+          : el.value;
+      if (el.type === 'number' && el.value === '' && !el.dataset.nullable)
+        throw Error('숫자 입력이 필요합니다.');
+      if (el.dataset.percent) value /= 100;
+      update(p => {
+        const seg = path.split('.');
+        let obj = p;
+        if (seg[0] === 'part') {
+          obj = p.parts.find(x => x.id === p.selectedPartId);
+          seg.shift();
+        }
+        for (const k of seg.slice(0, -1)) obj = obj[k];
+        obj[seg.at(-1)] = value;
+        if (
+          path.startsWith('part.') &&
+          ['tidKrad', 'densityBits', 'tidSource'].includes(seg.at(-1))
+        )
+          obj.tidBasis = 'user';
+      });
+    } catch (error) {
+      el.setAttribute('aria-invalid', 'true');
+      notify(error.message, true);
+    }
+  });
+});
+
+app.addEventListener('submit', e => {
+  if (e.target.id === 'lab-data-form') {
+    e.preventDefault();
+    try {
+      const hex = new FormData(e.target).get('hex').trim();
+      const next = resetMemory(project.lab, hex);
+      campaign = null;
+      update(p => (p.lab = next));
+      notify('기준 데이터를 기록하고 메모리를 초기화했습니다.');
+    } catch (error) {
+      notify(error.message, true);
+    }
+    return;
+  }
+  if (e.target.id !== 'env-editor') return;
+  e.preventDefault();
+  try {
+    const f = new FormData(e.target),
+      num = k => (f.get(k).trim() === '' ? null : Number(f.get(k)));
+    update(p => {
+      const m = p.mission,
+        o = ORBITS.find(x => x.id === m.orbitId),
+        basis = f.get('basis'),
+        dose = num('dose');
+      const matched = x => x.orbitId === m.orbitId && Math.abs(x.shieldMm - m.shieldMm) < 1e-8;
+      for (const row of p.environments.filter(matched)) {
+        const changed =
+          row.annualTidKrad !== dose ||
+          row.basis !== basis ||
+          row.source !== f.get('source') ||
+          row.model !== f.get('model') ||
+          row.epoch !== f.get('epoch');
+        if (changed && row.partId !== p.selectedPartId) {
+          row.seuPerBitDay = null;
+          row.sefiPerDeviceDay = null;
+          row.selPerDeviceDay = null;
+          row.notes = '환경 조건 또는 근거 변경: 이 부품의 오류율 재해석 필요';
+        }
+        row.annualTidKrad = dose;
+        row.basis = basis;
+        row.source = f.get('source');
+        row.model = f.get('model');
+        row.epoch = f.get('epoch');
+      }
+      const row = {
+        orbitId: o.id,
+        altitudeKm: o.altitudeKm,
+        inclinationDeg: o.inclinationDeg,
+        shieldMm: m.shieldMm,
+        annualTidKrad: dose,
+        partId: p.selectedPartId,
+        seuPerBitDay: num('seu'),
+        sefiPerDeviceDay: num('sefi'),
+        selPerDeviceDay: num('sel'),
+        basis,
+        source: f.get('source'),
+        model: f.get('model'),
+        epoch: f.get('epoch'),
+        rateKind: f.get('rateKind'),
+        notes: '선택 조건에서 직접 입력한 자료',
+      };
+      const i = p.environments.findIndex(x => matched(x) && x.partId === p.selectedPartId);
+      if (i < 0) p.environments.push(row);
+      else p.environments[i] = row;
+    });
+    notify('선택 조건의 환경·오류율을 적용했습니다.');
+  } catch (error) {
+    notify(error.message, true);
+  }
+});
+
+document.querySelector('#project-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 4e6) throw Error('프로젝트는 4 MB 이하만 지원합니다.');
+    const p = JSON.parse(await file.text());
+    validateProject(p);
+    p.lab ??= createLab();
+    project = p;
+    campaign = null;
+    render();
+    notify('시나리오와 모든 입력자료를 불러왔습니다.');
+  } catch (error) {
+    notify('불러오기 실패: ' + error.message, true);
+  } finally {
+    e.target.value = '';
+  }
+});
+document.querySelector('#environment-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 2e6) throw Error('CSV는 2 MB 이하만 지원합니다.');
+    const next = importEnvironmentCsv(project, await file.text());
+    if (window.confirm(`검증된 ${next.environments.length}행으로 전체 환경자료를 교체할까요?`)) {
+      project = next;
+      render();
+      notify('환경자료를 교체했습니다. 일치하는 조건만 계산에 사용합니다.');
+    }
+  } catch (error) {
+    notify('CSV 가져오기 실패: ' + error.message, true);
+  } finally {
+    e.target.value = '';
+  }
+});
+try {
+  render();
+} catch (e) {
+  app.innerHTML = `<main class="boot"><h1>분석 화면을 열 수 없습니다</h1><p>${h(e.message)}</p><p>페이지를 새로고침해 다시 시도해주세요.</p></main>`;
+}

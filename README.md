@@ -21,12 +21,12 @@ Node.js 22 이상으로 빌드하며 외부 패키지 설치와 API 키가 필�
 또는 다음 명령으로 정적 파일을 제공할 수 있습니다.
 
 ```bash
-python3 -m http.server 8000 --directory dist
+python3 -m http.server 8000 --directory src
 ```
 
-브라우저에서 `http://localhost:8000`을 여세요. 개발용 `dist/index.html`은 ES 모듈을 사용하므로
+브라우저에서 `http://localhost:8000`을 여세요. 개발용 `src/index.html`은 ES 모듈을 사용하므로
 로컬 HTTP 서버가 필요합니다. `dist/kleo-chip-standalone.html`은 별도로 묶은 독립 실행본입니다.
-Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. `dist` 전체를 정적 호스팅에 올릴 수 있습니다.
+Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. 정적 호스팅에는 `npm run build`로 만든 `build` 폴더를 올립니다.
 
 ## 실제 자료와 예시 자료
 
@@ -117,20 +117,24 @@ GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 테스트�
 
 ## 구조
 
-- `dist/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
-- `dist/lab-view.js`: 설계 실험 화면
-- `dist/kleo-chip-standalone.html`: 인터넷·설치 없이 여는 실행본
+원본 소스는 `src/`에 있고, 빌드 없이 브라우저에서 ES 모듈로 바로 실행됩니다.
+`dist/`에는 커밋되는 독립 실행본만 둡니다.
+
+- `src/index.html`: 문서와 진입점
+- `src/app.js`: 화면·입력·자료 입출력
+- `src/lab-view.js`: 설계 실험 화면
+- `src/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
+- `src/model.js`: 독립 계산·검증 모듈
+- `src/data.js`: 합성 시나리오·제조사 사양·출처
+- `src/styles.css`: 반응형 화면·인쇄
+- `dist/kleo-chip-standalone.html`: 인터넷·설치 없이 여는 실행본(자동 생성)
 - `tests/fault-lab.test.mjs`: 단일/이중 오류 전수 검사, 공통원인, 재현성
+- `tests/model.test.mjs`: 핵심 계산 검증
+- `scripts/build-render.mjs`: Render 빌드·독립 실행본·소스 ZIP 생성
+- `scripts/bench-campaign.mjs`: 반복 실험 속도 확인
 - `start.py`: Python 표준 라이브러리로 로컬 실행
 - `PROJECT.md`: 프로젝트 범위·사용법·개발계획
 - `SCENARIO_SCHEMA.md`: 시나리오 JSON 필드·버전 관리(후속 kleo 연동 참고)
-- `scripts/package-source.py`: 실행본 및 소스 ZIP 재생성
-- `dist/index.html`: 문서와 진입점
-- `dist/app.js`: 화면·입력·자료 입출력
-- `dist/styles.css`: 반응형 화면·인쇄
-- `dist/data.js`: 합성 시나리오·제조사 사양·출처
-- `dist/model.js`: 독립 계산·검증 모듈
-- `tests/model.test.mjs`: 핵심 계산 검증
 
 후속 `kleo` 연동은 JSON에 기록된 환경·부품·복구 모델의 명시된 범위를 유지한 채
 장비 기능중단 시나리오로 연결하세요. 원시 비트 오류를 위성 고장률로 직접 전용하지 마세요.
@@ -145,5 +149,9 @@ node --test tests/*.test.mjs
 python3 scripts/package-source.py
 ```
 
-생성된 실행본의 JavaScript 문법을 확인하고, 전체 소스 ZIP을 `dist`에 생성합니다.
+생성된 실행본의 JavaScript 문법을 확인하고, 독립 실행본과 전체 소스 ZIP을 `dist`에 생성합니다.
+독립 실행본은 모듈마다 별도 함수 범위로 묶이므로 `import { a, b } from './x.js'`와
+`export const|function` 형식만 사용하세요(별칭·default export는 빌드에서 거부).
+코드 형식은 `.prettierrc.json`을 따릅니다. 설치 없이 `npx prettier@3.9.9 --write "src/*.{js,css}" tests/*.mjs`로
+맞출 수 있으며 CI가 같은 버전으로 검사합니다.
 초기 배포·공유는 프로젝트 사용자가 결정하며, 소스 패키지에는 계정 정보·인증정보가 포함되지 않습니다.

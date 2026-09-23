@@ -1,6 +1,6 @@
 # 시나리오 JSON 계약 (kleo 연동 참고)
 
-이 문서는 `dist/data.js`의 `createProject()`가 만들고 `dist/model.js`의
+이 문서는 `src/data.js`의 `createProject()`가 만들고 `src/model.js`의
 `validateProject()`가 검증하는 시나리오 JSON의 필드를 정리합니다. 저장(`시나리오 저장`)·
 불러오기(`시나리오 불러오기`) 버튼이 그대로 이 형식을 읽고 씁니다. README에 적힌
 후속 `kleo`(궤도 설계 도구) 연동은 여기 적힌 필드와 단위를 그대로 유지한 채,
@@ -11,17 +11,17 @@
 
 ## 버전 관리
 
-- `schemaVersion` 필드는 `dist/data.js`가 export하는 `SCENARIO_SCHEMA_VERSION` 상수
-  하나로 관리합니다(현재 `1`). `dist/model.js`의 `validateProject()`는 같은 상수와
+- `schemaVersion` 필드는 `src/data.js`가 export하는 `SCENARIO_SCHEMA_VERSION` 상수
+  하나로 관리합니다(현재 `1`). `src/model.js`의 `validateProject()`는 같은 상수와
   정확히 일치하는 값만 통과시킵니다 — 문자열 `"1"`이나 다른 정수는 거부됩니다.
 - V1.0 → V1.1 확장(설계 실험 상태 `lab` 필드 추가)은 `schemaVersion`을 올리지 않고
   **선택 필드 추가**로 처리했습니다. `lab`이 없는 V1.0 파일을 불러오면
-  `dist/app.js`가 `p.lab ??= createLab()`으로 기본값을 채웁니다.
+  `src/app.js`(불러오기)와 `render()`가 `p.lab ??= createLab()`으로 기본값을 채웁니다.
   스키마를 확장할 때 우선 고려할 패턴입니다: 기존 필드의 의미·단위를 바꾸지 않고
   새 필드를 선택(optional)으로 추가할 수 있다면 `schemaVersion`을 유지하고,
   기존 필드의 의미·단위·필수 여부가 바뀌면 `SCENARIO_SCHEMA_VERSION`을 올리고
   `validateProject()`에 이전 버전 변환(migration) 경로를 추가하세요.
-- 이 파일과 `dist/model.js`의 `validateProject()`, `dist/data.js`의
+- 이 파일과 `src/model.js`의 `validateProject()`, `src/data.js`의
   `SCENARIO_SCHEMA_VERSION`은 함께 갱신해야 합니다. 하나만 바꾸면 저장 파일과
   검증기가 어긋납니다.
 - 검증기는 알 수 없는 최상위 필드를 거부하지 않습니다(추가 전용 확장에 안전).
@@ -44,7 +44,7 @@
 | `flight` | object | Space-MaCS 관측기간·소자 수·사건유형별 관측 건수 |
 | `taskStatus` | object | 검증 작업 ID → `계획`/`진행`/`완료` |
 
-정확한 숫자 범위·필수 여부는 `dist/model.js`의 `validateProject()`가 유일한 진실
+정확한 숫자 범위·필수 여부는 `src/model.js`의 `validateProject()`가 유일한 진실
 소스(source of truth)입니다. 이 표는 요약이며 코드와 어긋나면 코드가 우선합니다.
 
 ## kleo 연동 시 특히 주의할 점 (README 발췌)

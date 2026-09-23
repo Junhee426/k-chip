@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
+      - name: Format check
+        run: npx --yes prettier@3.9.9 --check "src/*.{js,css}" "tests/*.mjs"
       - name: Test
         run: npm test
       - name: Build
