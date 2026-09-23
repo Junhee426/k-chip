@@ -121,8 +121,14 @@ GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 테스트�
 `dist/`에는 커밋되는 독립 실행본만 둡니다.
 
 - `src/index.html`: 문서와 진입점
-- `src/app.js`: 화면·입력·자료 입출력
+- `src/app.js`: 화면 그리기(`render`), 입력·버튼 이벤트, 파일 불러오기
+- `src/state.js`: 현재 시나리오·페이지·반복 실험 결과(공유 상태)
+- `src/pages.js`: 분석·부품·보호·검증·비용·자료 페이지 화면
 - `src/lab-view.js`: 설계 실험 화면
+- `src/forms.js`: 공통 입력 컨트롤과 임무 조건 패널
+- `src/ui.js`: HTML 이스케이프·숫자 형식·카드·표·버튼 등 화면 부품
+- `src/reports.js`: 결과·실험 CSV와 인쇄 보고서
+- `src/dom.js`: 알림 메시지와 파일 내려받기
 - `src/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
 - `src/model.js`: 독립 계산·검증 모듈
 - `src/data.js`: 합성 시나리오·제조사 사양·출처
