@@ -8,7 +8,7 @@ Render 서비스 종류는 **Static Site**입니다.
 
 1. ZIP 압축을 풉니다.
 2. GitHub에서 새 저장소(예: `kleo-chip`)를 만듭니다. 저장소 공개/비공개는 선택할 수 있습니다.
-3. 압축 내부 `kleo-chip-v1.1.0` 폴더 안의 파일과 `dist`, `scripts`, `tests` 폴더를 올립니다.
+3. 압축 내부 `kleo-chip-v1.1.0` 폴더 안의 파일과 `src`, `dist`, `scripts`, `tests`, `.github` 폴더를 올립니다.
 4. 저장소 첫 화면에 `render.yaml`과 `package.json`이 바로 보여야 합니다. ZIP 파일 자체만 올리면 배포되지 않습니다.
 
 GitHub의 Add file → Upload files를 이용해도 됩니다. `.node-version`, `.gitignore`도 포함하면 좋습니다.

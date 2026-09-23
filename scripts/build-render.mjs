@@ -8,7 +8,7 @@ import { deflateRawSync } from 'node:zlib';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, 'build');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const modules = ['fault-lab.js', 'data.js', 'model.js', 'lab-view.js', 'app.js'];
+const modules = readdirSync(join(root, 'src')).filter(name => name.endsWith('.js')).sort();
 const publicNames = ['index.html', 'styles.css', ...modules];
 const sourceName = `kleo-chip-v${pkg.version}-source.zip`;
 const read = name => readFileSync(join(root, name), 'utf8');
@@ -22,36 +22,67 @@ function checkJS(source, label) {
   }
 }
 
-// Check module and generated standalone entrypoints before publishing.
+// Sources only use `import { a, b } from './x.js'` and `export const|let|function|class`
+// or `export { a }`. Each module becomes its own function scope in the standalone file,
+// so top-level names never collide across modules.
+const IMPORT = /^import\s*\{([^}]*)\}\s*from\s*['"]\.\/([^'"]+)['"];?[ \t]*$/gm;
+const parsed = new Map();
 for (const name of modules) {
-  const source = read(`dist/${name}`);
+  const source = read(`src/${name}`);
   checkJS(source, name);
-  for (const match of source.matchAll(/^import .*?from ['"]\.\/([^'"]+)['"];?$/gm)) {
-    if (!modules.includes(match[1])) throw new Error(`Missing module: ${match[1]}`);
+  const imports = [...source.matchAll(IMPORT)].map(m => ({ names: m[1].split(',').map(x => x.trim()).filter(Boolean), from: m[2] }));
+  for (const { names, from } of imports) {
+    if (!modules.includes(from)) throw new Error(`${name}: missing module ${from}`);
+    if (names.some(x => /\s/.test(x))) throw new Error(`${name}: import aliases are not supported by the standalone build`);
   }
+  if (/^\s*(import\s|export\s+(default|\*))/m.test(source.replace(IMPORT, ''))) {
+    throw new Error(`${name}: unsupported import/export form for the standalone build`);
+  }
+  const exported = [
+    ...[...source.matchAll(/^export\s+(?:const|let|function|class)\s+([\w$]+)/gm)].map(m => m[1]),
+    ...[...source.matchAll(/^export\s*\{([^}]*)\};?/gm)].flatMap(m => m[1].split(',').map(x => x.trim()).filter(Boolean)),
+  ];
+  const body = source.replace(IMPORT, '').replace(/^export\s*\{[^}]*\};?[ \t]*$/gm, '')
+    .replace(/^export\s+(?=(?:const|let|function|class)\b)/gm, '');
+  parsed.set(name, { imports, exported, body });
 }
-const html = read('dist/index.html');
+const ordered = [];
+const visit = (name, trail = []) => {
+  if (ordered.includes(name)) return;
+  if (trail.includes(name)) throw new Error(`Import cycle: ${[...trail, name].join(' -> ')}`);
+  for (const dep of parsed.get(name).imports) visit(dep.from, [...trail, name]);
+  ordered.push(name);
+};
+visit('app.js');
+for (const name of modules) visit(name);
+
+const html = read('src/index.html');
 for (const match of html.matchAll(/(?:src|href)=["']\.\/([^"']+)["']/g)) {
   if (!publicNames.includes(match[1])) throw new Error(`Missing public asset: ${match[1]}`);
 }
 const sourceLink = `<a href="./${sourceName}" download>소스 코드 다운로드</a>`;
-if (!read('dist/app.js').includes(sourceLink)) throw new Error('Source download link/version mismatch');
-let script = modules.map(name => read(`dist/${name}`)
-  .replace(/^import .*?;\s*$/gm, '')
-  .replace(/^export (?=(?:const|function|class)\b)/gm, '')).join('\n');
+if (!modules.some(name => read(`src/${name}`).includes(sourceLink))) throw new Error('Source download link/version mismatch');
+let script = 'const __modules = {};\n' + ordered.map(name => {
+  const { imports, exported, body } = parsed.get(name);
+  const bindings = imports.map(({ names, from }) => `const { ${names.join(', ')} } = __modules[${JSON.stringify(from)}];`).join('\n');
+  return `__modules[${JSON.stringify(name)}] = (() => {\n${bindings}\n${body}\nreturn { ${exported.join(', ')} };\n})();`;
+}).join('\n');
 script = script.replace(sourceLink, `V${pkg.version} · 독립 실행본`);
 checkJS(script, 'standalone');
 const standalone = html
-  .replace('<link rel="stylesheet" href="./styles.css">', () => `<style>${read('dist/styles.css')}</style>`)
+  .replace('<link rel="stylesheet" href="./styles.css">', () => `<style>${read('src/styles.css')}</style>`)
   .replace('<script type="module" src="./app.js"></script>',
     () => `<script type="module">\n${script.replace(/<\/script/gi, '<\\/script')}\n</script>`);
 
 // Explicit inclusion excludes accounts, Git, credentials and stale archives.
 const sourceFiles = [
   'README.md', 'PROJECT.md', 'RENDER_DEPLOYMENT.md', 'RENDER_RELEASE.md',
+  'SCENARIO_SCHEMA.md', 'SERVICE_EXPANSION_REVIEW.md',
   'package.json', 'render.yaml', '.node-version', '.gitignore', 'start.py',
-  'scripts/build-render.mjs', 'scripts/package-source.py',
-  ...publicNames.map(name => `dist/${name}`),
+  'scripts/build-render.mjs', 'scripts/bench-campaign.mjs', 'scripts/package-source.py',
+  '.github/workflows/ci.yml',
+  '.prettierrc.json',
+  ...publicNames.map(name => `src/${name}`),
   ...readdirSync(join(root, 'tests')).filter(name => name.endsWith('.test.mjs'))
     .sort().map(name => `tests/${name}`),
 ];
@@ -116,7 +147,7 @@ function zip(files) {
 const archive = zip(entries);
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
-for (const name of publicNames) writeFileSync(join(output, name), readFileSync(join(root, 'dist', name)));
+for (const name of publicNames) writeFileSync(join(output, name), readFileSync(join(root, 'src', name)));
 writeFileSync(join(output, 'kleo-chip-standalone.html'), standalone);
 writeFileSync(join(output, sourceName), archive);
 console.log(`Render static build: ${output}`);

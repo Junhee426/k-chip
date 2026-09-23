@@ -21,12 +21,12 @@ Node.js 22 이상으로 빌드하며 외부 패키지 설치와 API 키가 필�
 또는 다음 명령으로 정적 파일을 제공할 수 있습니다.
 
 ```bash
-python3 -m http.server 8000 --directory dist
+python3 -m http.server 8000 --directory src
 ```
 
-브라우저에서 `http://localhost:8000`을 여세요. 개발용 `dist/index.html`은 ES 모듈을 사용하므로
+브라우저에서 `http://localhost:8000`을 여세요. 개발용 `src/index.html`은 ES 모듈을 사용하므로
 로컬 HTTP 서버가 필요합니다. `dist/kleo-chip-standalone.html`은 별도로 묶은 독립 실행본입니다.
-Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. `dist` 전체를 정적 호스팅에 올릴 수 있습니다.
+Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. 정적 호스팅에는 `npm run build`로 만든 `build` 폴더를 올립니다.
 
 ## 실제 자료와 예시 자료
 
@@ -46,7 +46,7 @@ Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. `dist
 기존 적용성 비교 기능:
 
 1. 환경: 정확히 일치하는 궤도·차폐의 연간 TID를 이용한 누적선량·여유 비교.
-2. 부품: 부품 추가·복제·사양·시험조건·로트·출처 편집.
+2. 부품: 부품 추가·복제·삭제·사양·시험조건·로트·출처 편집.
 3. 보호: 원시 SEU율을 이용한 ECC/스크러빙, 이상적 TMR/재동기화 비교.
 4. 검증: TID, SEU, SEL/SEFI, 복구, 우주검증, 추적성 계획과 진행상태.
 5. 비용: 수량, 예비품, 반도체·선별·보호·차폐 제작비와 시험·개발비 합산.
@@ -87,6 +87,7 @@ Python이 없다면 임의의 정적 웹 서버를 사용해도 됩니다. `dist
 - TID 수치 여유 = 부품 근거값 / (임무 선량 × 설계 여유계수).
 - SEU = 입력 원시 per-bit-day 오류율 × 소자 비트 수 × 논리 장비당 소자 수.
 - ECC는 동일 워드·점검주기의 독립 포아송 다중오류와 입력한 동시 2-bit 사건을 합산합니다.
+  노출 비트에는 SECDED 검사 비트가 포함됩니다. 예: 64-bit 워드는 72 bit 저장, 원시 오류 72/64배.
 - TMR은 세 복제본 중 두 개 이상의 워드 오류와 공통원인 항을 합산합니다. 투표기 이상적·주기별 정상화 가정.
 - 기능 영향과 검출·복구 성공률은 사용자 가정입니다. 복구 중단시간은 성공적으로 복구 가능한 SEU와
   입력된 SEFI에만 해당합니다. SEL, 영구고장, 부품 수명과 위성망 가용도를 포함하지 않습니다.
@@ -110,22 +111,36 @@ node --test tests/*.test.mjs
 비트 단위·수량, 선량 여유, 자료 미확보 처리, 차폐 불일치, ECC/TMR 극한조건,
 비용 산술, 0건 관측 상한, CSV 왕복·유효성 검사를 포함합니다.
 
+반복 실험 속도(20,000회)는 기기 성능에 좌우되므로 테스트와 분리해 `npm run bench`로 확인합니다.
+GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 테스트·빌드를 실행하고,
+커밋된 `dist/kleo-chip-standalone.html`이 현재 소스로 만든 결과와 같은지 검사합니다.
+
 ## 구조
 
-- `dist/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
-- `dist/lab-view.js`: 설계 실험 화면
-- `dist/kleo-chip-standalone.html`: 인터넷·설치 없이 여는 실행본
+원본 소스는 `src/`에 있고, 빌드 없이 브라우저에서 ES 모듈로 바로 실행됩니다.
+`dist/`에는 커밋되는 독립 실행본만 둡니다.
+
+- `src/index.html`: 문서와 진입점
+- `src/app.js`: 화면 그리기(`render`), 입력·버튼 이벤트, 파일 불러오기
+- `src/state.js`: 현재 시나리오·페이지·반복 실험 결과(공유 상태)
+- `src/pages.js`: 분석·부품·보호·검증·비용·자료 페이지 화면
+- `src/lab-view.js`: 설계 실험 화면
+- `src/forms.js`: 공통 입력 컨트롤과 임무 조건 패널
+- `src/ui.js`: HTML 이스케이프·숫자 형식·카드·표·버튼 등 화면 부품
+- `src/reports.js`: 결과·실험 CSV와 인쇄 보고서
+- `src/dom.js`: 알림 메시지와 파일 내려받기
+- `src/fault-lab.js`: 비트 단위 SECDED·TMR·시드 기반 오류 주입 모델
+- `src/model.js`: 독립 계산·검증 모듈
+- `src/data.js`: 합성 시나리오·제조사 사양·출처
+- `src/styles.css`: 반응형 화면·인쇄
+- `dist/kleo-chip-standalone.html`: 인터넷·설치 없이 여는 실행본(자동 생성)
 - `tests/fault-lab.test.mjs`: 단일/이중 오류 전수 검사, 공통원인, 재현성
+- `tests/model.test.mjs`: 핵심 계산 검증
+- `scripts/build-render.mjs`: Render 빌드·독립 실행본·소스 ZIP 생성
+- `scripts/bench-campaign.mjs`: 반복 실험 속도 확인
 - `start.py`: Python 표준 라이브러리로 로컬 실행
 - `PROJECT.md`: 프로젝트 범위·사용법·개발계획
 - `SCENARIO_SCHEMA.md`: 시나리오 JSON 필드·버전 관리(후속 kleo 연동 참고)
-- `scripts/package-source.py`: 실행본 및 소스 ZIP 재생성
-- `dist/index.html`: 문서와 진입점
-- `dist/app.js`: 화면·입력·자료 입출력
-- `dist/styles.css`: 반응형 화면·인쇄
-- `dist/data.js`: 합성 시나리오·제조사 사양·출처
-- `dist/model.js`: 독립 계산·검증 모듈
-- `tests/model.test.mjs`: 핵심 계산 검증
 
 후속 `kleo` 연동은 JSON에 기록된 환경·부품·복구 모델의 명시된 범위를 유지한 채
 장비 기능중단 시나리오로 연결하세요. 원시 비트 오류를 위성 고장률로 직접 전용하지 마세요.
@@ -140,5 +155,9 @@ node --test tests/*.test.mjs
 python3 scripts/package-source.py
 ```
 
-생성된 실행본의 JavaScript 문법을 확인하고, 전체 소스 ZIP을 `dist`에 생성합니다.
+생성된 실행본의 JavaScript 문법을 확인하고, 독립 실행본과 전체 소스 ZIP을 `dist`에 생성합니다.
+독립 실행본은 모듈마다 별도 함수 범위로 묶이므로 `import { a, b } from './x.js'`와
+`export const|function` 형식만 사용하세요(별칭·default export는 빌드에서 거부).
+코드 형식은 `.prettierrc.json`을 따릅니다. 설치 없이 `npx prettier@3.9.9 --write "src/*.{js,css}" tests/*.mjs`로
+맞출 수 있으며 CI가 같은 버전으로 검사합니다.
 초기 배포·공유는 프로젝트 사용자가 결정하며, 소스 패키지에는 계정 정보·인증정보가 포함되지 않습니다.
