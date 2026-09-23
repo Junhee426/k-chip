@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createProject,SCENARIO_SCHEMA_VERSION} from '../dist/data.js';
-import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
+import {evaluate,softErrorModel,atLeastTwoPoisson,costModel,zeroEventUpperRate,validateProject,importEnvironmentCsv,environmentCsv,parseCsv,removePart,toCsv,SCENARIO_SCHEMA_VERSION as MODEL_SCHEMA_VERSION} from '../dist/model.js';
 
 test('default scenario: 8 krad/year × 5 years, margin 2, 30 krad component',()=>{
  const p=createProject();validateProject(p);const r=evaluate(p);
@@ -84,4 +84,15 @@ test('scenario schema version is a single shared source of truth (kleo integrati
  validateProject(p);
  p.schemaVersion=SCENARIO_SCHEMA_VERSION+1;assert.throws(()=>validateProject(p),/schemaVersion/);
  p.schemaVersion=String(SCENARIO_SCHEMA_VERSION);assert.throws(()=>validateProject(p),/schemaVersion/);
+});
+test('removing a part drops only its own environment rows and keeps a valid selection',()=>{
+ const p=createProject();const shared={...p.environments.find(x=>x.partId==='demo-b'),partId:'*'};p.environments.push(shared);
+ const next=removePart(p,'demo-a');
+ assert.equal(next.parts.some(x=>x.id==='demo-a'),false);assert.equal(next.environments.some(x=>x.partId==='demo-a'),false);
+ assert.equal(next.selectedPartId,next.parts[0].id);assert.ok(next.environments.some(x=>x.partId==='*'));
+ assert.equal(p.parts.length,6,'input project is not mutated');
+ const other=removePart(p,'demo-c');assert.equal(other.selectedPartId,'demo-a');
+ assert.throws(()=>removePart(p,'missing'),/찾을 수 없습니다/);
+ let one=createProject();for(const x of one.parts.slice(1).map(x=>x.id))one=removePart(one,x);
+ assert.throws(()=>removePart(one,one.parts[0].id),/최소 1개/);
 });

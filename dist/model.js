@@ -66,6 +66,16 @@ export function costModel(project,part,mode=project.protection.mode){
  const recurring=bom===null?null:bom*boards;
  return {boards,chips,replicas,bom,recurring,nre:c.qualificationNre+c.engineeringNre,total:recurring===null?null:recurring+c.qualificationNre+c.engineeringNre,powerW:valid(part.powerW)?part.powerW*chips+(mode==='none'?0:c.protectionPowerW):null};
 }
+// Removing a part also drops its device-specific environment rows; otherwise
+// validateProject() would reject the orphaned partId. Shared '*' rows stay.
+export function removePart(project,partId){
+ if(project.parts.length<=1)throw Error('부품은 최소 1개가 필요합니다.');
+ if(!project.parts.some(x=>x.id===partId))throw Error('부품을 찾을 수 없습니다.');
+ const p=structuredClone(project);
+ p.parts=p.parts.filter(x=>x.id!==partId);p.environments=p.environments.filter(x=>x.partId!==partId);
+ if(p.selectedPartId===partId)p.selectedPartId=p.parts[0].id;
+ return validateProject(p);
+}
 export function zeroEventUpperRate(months,devices){
  if(!valid(months)||months<=0||!Number.isInteger(devices)||devices<1)throw Error('양수 관측기간과 소자 수가 필요합니다.');
  return -Math.log(.05)/(months*DAYS_PER_YEAR/12*devices);
