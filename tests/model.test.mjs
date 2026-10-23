@@ -55,6 +55,49 @@ test('vendor TID specifications cannot manufacture unknown SEU or price data', (
   assert.equal(r.cost.powerW, null);
   assert.equal(r.part.tidBasis, 'spec');
 });
+test('shared dose fills a blank part dose while preserving part-specific upset rates', () => {
+  for (const annualTidKrad of [8, 0]) {
+    const p = createProject();
+    const exact = p.environments.find(
+      x => x.orbitId === 'leo888' && x.shieldMm === 2 && x.partId === 'demo-a',
+    );
+    exact.annualTidKrad = null;
+    const shared = {
+      ...exact,
+      partId: '*',
+      annualTidKrad,
+      seuPerBitDay: null,
+      sefiPerDeviceDay: null,
+      selPerDeviceDay: null,
+    };
+    p.environments = [exact, shared];
+    validateProject(p);
+    const r = evaluate(p);
+    assert.equal(r.dose, shared);
+    assert.equal(r.rate, exact);
+    assert.equal(r.missionDose, annualTidKrad * 5);
+    assert.equal(r.requiredDose, annualTidKrad * 10);
+    assert.equal(r.soft.rawPerDay, 7e-8 * 16777216 * 2);
+    assert.ok(!r.reasons.includes('일치하는 궤도·차폐의 연간 TID'));
+  }
+});
+test('another matching part can supply shared dose and missing annual dose is flagged', () => {
+  const p = createProject();
+  const matching = p.environments.filter(x => x.orbitId === 'leo888' && x.shieldMm === 2);
+  const exact = matching.find(x => x.partId === 'demo-a');
+  exact.annualTidKrad = null;
+  validateProject(p);
+  assert.equal(evaluate(p).missionDose, 40);
+  for (const row of matching) row.annualTidKrad = null;
+  validateProject(p);
+  const r = evaluate(p);
+  assert.equal(r.missionDose, null);
+  assert.equal(r.requiredDose, null);
+  assert.equal(r.tidRatio, null);
+  assert.equal(r.dose, exact, 'retain source metadata for editing');
+  assert.ok(r.soft.rawPerDay > 0);
+  assert.ok(r.reasons.includes('일치하는 궤도·차폐의 연간 TID'));
+});
 test('unknown differs from zero, and protected output rates cannot be corrected twice', () => {
   const p = createProject();
   const row = p.environments.find(
@@ -143,6 +186,21 @@ test('CSV round trip preserves assumptions, missing values, units and quoted sou
   assert.equal(q.environments.length, 27);
   assert.equal(q.environments[0].source, p.environments[0].source);
   assert.equal(q.environments[0].selPerDeviceDay, null);
+});
+test('CSV headers allow surrounding spaces but reject duplicate normalized column names', () => {
+  const p = createProject();
+  const original = structuredClone(p);
+  const rows = parseCsv(environmentCsv(p));
+  rows[0] = rows[0].map(h => ` ${h} `);
+  const q = importEnvironmentCsv(p, toCsv(rows));
+  assert.equal(evaluate(q).soft.rawPerDay, evaluate(p).soft.rawPerDay);
+  for (const header of ['seu_per_bit_day', ' seu_per_bit_day ']) {
+    const duplicated = structuredClone(rows);
+    duplicated[0].push(header);
+    for (const row of duplicated.slice(1)) row.push('0');
+    assert.throws(() => importEnvironmentCsv(p, toCsv(duplicated)), /중복.*seu_per_bit_day/);
+    assert.deepEqual(p, original, 'rejected imports preserve the input project');
+  }
 });
 test('unsafe or inconsistent imported data is rejected', () => {
   const p = createProject();

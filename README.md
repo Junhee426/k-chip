@@ -111,8 +111,22 @@ node --test tests/*.test.mjs
 비트 단위·수량, 선량 여유, 자료 미확보 처리, 차폐 불일치, ECC/TMR 극한조건,
 비용 산술, 0건 관측 상한, CSV 왕복·유효성 검사를 포함합니다.
 
+브라우저 입력·저장·복제와 환경자료 초안 보존은 Chromium으로 검증합니다.
+개발용 브라우저 테스트에만 패키지와 브라우저 설치가 필요합니다.
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
+
+환경자료의 미적용 입력은 현재 탭에서 부품·궤도·차폐 조건별로 유지됩니다.
+적용하면 해당 초안을 지우며, 초기화·시나리오 불러오기·환경 CSV 교체 시에는
+이전 환경자료 초안을 지웁니다. 공통 선량·환경 근거를 변경해 적용하면 같은 궤도·차폐의
+다른 부품 초안도 초기화합니다. 새로고침이나 시나리오 JSON 저장에는 미적용 초안이 포함되지 않습니다.
+
 반복 실험 속도(20,000회)는 기기 성능에 좌우되므로 테스트와 분리해 `npm run bench`로 확인합니다.
-GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 테스트·빌드를 실행하고,
+GitHub Actions(`.github/workflows/ci.yml`)가 PR과 main 푸시마다 계산·브라우저 테스트와 빌드를 실행하고,
 커밋된 `dist/kleo-chip-standalone.html`이 현재 소스로 만든 결과와 같은지 검사합니다.
 
 ## 구조

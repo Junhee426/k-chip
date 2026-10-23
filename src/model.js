@@ -19,7 +19,9 @@ export function findEnvironment(project, partId, orbitId = project.mission.orbit
       Math.abs(x.inclinationDeg - orbit.inclinationDeg) < 0.01,
   );
   const exact = rows.find(x => x.partId === partId);
-  const dose = exact || rows.find(x => x.partId === '*') || rows[0];
+  const shared = rows.find(x => x.partId === '*');
+  const dose =
+    [exact, shared, ...rows].find(x => valid(x?.annualTidKrad)) || exact || shared || rows[0];
   return { dose: dose || null, rate: exact || null };
 }
 // Hamming check bits r with 2^r >= k+r+1, plus one overall parity bit (SECDED).
@@ -94,6 +96,7 @@ export function evaluate(
     part.tidBasis === 'synthetic' || dose?.basis === 'synthetic' || rate?.basis === 'synthetic';
   const reasons = [];
   if (!dose) reasons.push('일치하는 궤도·차폐의 환경자료');
+  else if (!valid(dose.annualTidKrad)) reasons.push('일치하는 궤도·차폐의 연간 TID');
   if (!valid(part.tidKrad)) reasons.push('부품 TID 근거');
   if (!rate || !valid(rate.seuPerBitDay)) reasons.push('부품·궤도별 SEU 계산자료');
   else if (!rawCompatible) reasons.push('원시 비트 SEU율 (현재 자료는 보호 후 출력율)');
@@ -387,8 +390,14 @@ const columns = [
 ];
 export const CSV_COLUMNS = columns;
 export function importEnvironmentCsv(project, text) {
-  const [headers, ...rows] = parseCsv(text);
-  if (!headers) throw Error('빈 CSV입니다.');
+  const [rawHeaders, ...rows] = parseCsv(text);
+  if (!rawHeaders) throw Error('빈 CSV입니다.');
+  const headers = rawHeaders.map(h => h.trim());
+  const seenHeaders = new Set();
+  for (const h of headers) {
+    if (seenHeaders.has(h)) throw Error(`CSV 열 이름이 중복됩니다: ${h}`);
+    seenHeaders.add(h);
+  }
   for (const c of columns) if (!headers.includes(c)) throw Error(`필수 열 없음: ${c}`);
   const toNumber = s => (s.trim() === '' ? null : Number(s));
   const result = rows.map((r, i) => {

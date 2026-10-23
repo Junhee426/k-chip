@@ -36,6 +36,69 @@ import {
 import { labCsv, printLabReport, printReport, resultCsv, saveProject } from './reports.js';
 
 const app = document.querySelector('#app');
+const formDrafts = new Map();
+let renderTimer = null,
+  renderPending = false,
+  pointerActive = false,
+  rendering = false;
+
+function scheduleRender() {
+  renderPending = true;
+  if (pointerActive || renderTimer !== null) return;
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    if (!pointerActive && renderPending) render();
+  });
+}
+// Keep the pressed element in the DOM through pointerup and its resulting click.
+document.addEventListener('pointerdown', () => (pointerActive = true), true);
+for (const event of ['pointerup', 'pointercancel'])
+  document.addEventListener(
+    event,
+    () => {
+      pointerActive = false;
+      if (renderPending) scheduleRender();
+    },
+    true,
+  );
+window.addEventListener('blur', () => {
+  pointerActive = false;
+  if (renderPending) scheduleRender();
+});
+
+function environmentDraftKey() {
+  const p = state.project;
+  return 'env-editor:' + JSON.stringify([p.selectedPartId, p.mission.orbitId, p.mission.shieldMm]);
+}
+function clearEnvironmentDrafts(orbitId, shieldMm) {
+  let cleared = 0;
+  for (const key of formDrafts.keys()) {
+    if (!key.startsWith('env-editor:')) continue;
+    const [, orbit, shield] = JSON.parse(key.slice('env-editor:'.length));
+    if (orbitId !== undefined && (orbit !== orbitId || Math.abs(shield - shieldMm) >= 1e-8))
+      continue;
+    formDrafts.delete(key);
+    cleared++;
+  }
+  return cleared;
+}
+function restoreFormDrafts() {
+  for (const form of app.querySelectorAll('#env-editor, #lab-data-form')) {
+    const key = form.id === 'env-editor' ? environmentDraftKey() : form.id;
+    form.dataset.draftKey = key;
+    for (const [name, value] of Object.entries(formDrafts.get(key) || {})) {
+      const field = form.elements.namedItem(name);
+      if (field) field.value = value;
+    }
+  }
+}
+function rememberFormDraft(e) {
+  if (rendering || !app.contains(e.target)) return;
+  const form = e.target.closest('form[data-draft-key]');
+  if (form) formDrafts.set(form.dataset.draftKey, Object.fromEntries(new FormData(form)));
+}
+app.addEventListener('input', rememberFormDraft);
+app.addEventListener('change', rememberFormDraft);
 // render() replaces #app wholesale, so remember which control had focus (by its
 // data-* identity and position among same-identity controls) and put it back.
 const FOCUS_KEYS = [
@@ -87,29 +150,38 @@ function restoreFocus(state) {
     } catch {}
 }
 function render() {
+  clearTimeout(renderTimer);
+  renderTimer = null;
+  renderPending = false;
   state.project.lab ??= createLab();
   validateProject(state.project);
   const r = evaluate(state.project),
     p = pages[state.page];
   const focus = focusState();
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">${icon('chip')}<div><strong>K-LEO <span style="color:#5be3b6">CHIP</span></strong><small>SPACE ELECTRONICS LAB</small></div></div><div class="nav-caption">분석 워크스페이스</div><nav class="nav" aria-label="분석 메뉴">${Object.entries(
-    pages,
-  )
-    .map(
-      ([id, x]) =>
-        `<button type="button" data-page="${id}" class="${id === state.page ? 'active' : ''}" ${id === state.page ? 'aria-current="page"' : ''}>${icon(x[3])}${x[0]}</button>`,
+  rendering = true;
+  try {
+    app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">${icon('chip')}<div><strong>K-LEO <span style="color:#5be3b6">CHIP</span></strong><small>SPACE ELECTRONICS LAB</small></div></div><div class="nav-caption">분석 워크스페이스</div><nav class="nav" aria-label="분석 메뉴">${Object.entries(
+      pages,
     )
-    .join(
-      '',
-    )}</nav><div class="side-bottom"><p>궤도 조건부터<br>반도체 적용·검증까지</p><span class="version">V1.1.0 · DESIGN LAB</span></div></aside><div class="main-wrap"><header class="topbar"><div class="crumb">K-LEO / <strong>우주반도체 적용성</strong></div><div class="top-actions">${btn('불러오기', 'load', 'upload')}${btn('시나리오 저장', 'save', 'download')}${btn('보고서 인쇄', 'print', 'print')}</div></header><main class="main" id="main"><div class="page-heading"><div><p class="eyebrow">${p[1]}</p><h1>${p[0]}</h1><p class="subheading">${p[2]}</p></div>${state.page === 'lab' ? (state.campaign ? btn('실험 CSV', 'lab-csv', 'download') : btn('궤도별 분석', 'go-overview', 'arrow')) : btn('결과 CSV', 'results', 'download')}</div>${state.page === 'lab' ? '' : controls() + evidenceNotice(r)}${{ lab: () => labPage(state.project.lab, state.campaign, { card, btn, badge, table, fmt, h, notice, metric }), overview: overview, parts: partsPage, protection: protectionPage, verification: verificationPage, cost: costPage, data: dataPage }[state.page](r)}<footer class="footer"><span>K-LEO CHIP · ${h(state.project.title)}</span><span>메모리 설계·적용성 · <a href="./kleo-chip-v1.1.0-source.zip" download>소스 코드 다운로드</a></span></footer></main></div></div>`;
-  restoreFocus(focus);
+      .map(
+        ([id, x]) =>
+          `<button type="button" data-page="${id}" class="${id === state.page ? 'active' : ''}" ${id === state.page ? 'aria-current="page"' : ''}>${icon(x[3])}${x[0]}</button>`,
+      )
+      .join(
+        '',
+      )}</nav><div class="side-bottom"><p>궤도 조건부터<br>반도체 적용·검증까지</p><span class="version">V1.1.0 · DESIGN LAB</span></div></aside><div class="main-wrap"><header class="topbar"><div class="crumb">K-LEO / <strong>우주반도체 적용성</strong></div><div class="top-actions">${btn('불러오기', 'load', 'upload')}${btn('시나리오 저장', 'save', 'download')}${btn('보고서 인쇄', 'print', 'print')}</div></header><main class="main" id="main"><div class="page-heading"><div><p class="eyebrow">${p[1]}</p><h1>${p[0]}</h1><p class="subheading">${p[2]}</p></div>${state.page === 'lab' ? (state.campaign ? btn('실험 CSV', 'lab-csv', 'download') : btn('궤도별 분석', 'go-overview', 'arrow')) : btn('결과 CSV', 'results', 'download')}</div>${state.page === 'lab' ? '' : controls() + evidenceNotice(r)}${{ lab: () => labPage(state.project.lab, state.campaign, { card, btn, badge, table, fmt, h, notice, metric }), overview: overview, parts: partsPage, protection: protectionPage, verification: verificationPage, cost: costPage, data: dataPage }[state.page](r)}<footer class="footer"><span>K-LEO CHIP · ${h(state.project.title)}</span><span>메모리 설계·적용성 · <a href="./kleo-chip-v1.1.0-source.zip" download>소스 코드 다운로드</a></span></footer></main></div></div>`;
+    restoreFormDrafts();
+    restoreFocus(focus);
+  } finally {
+    rendering = false;
+  }
 }
-function update(fn) {
+function update(fn, redraw = true) {
   const draft = structuredClone(state.project);
   fn(draft);
   validateProject(draft);
   state.project = draft;
-  render();
+  if (redraw) render();
 }
 app.addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -250,6 +322,7 @@ app.addEventListener('click', e => {
       ) {
         state.project = createProject();
         state.campaign = null;
+        formDrafts.clear();
         render();
         notify('예시 시나리오로 복원했습니다.');
       }
@@ -298,63 +371,62 @@ app.addEventListener('click', e => {
     notify(error.message, true);
   }
 });
-// Chrome fires change after focus leaves the field but before it reaches the next
-// one; handle it on the next task so render() can restore focus to the Tab target.
+// Commit before another action can change the selection. Only rendering waits for
+// focus to settle or for an in-progress pointer gesture to finish.
 app.addEventListener('change', e => {
   const el = e.target;
-  setTimeout(() => {
-    try {
-      if (el.dataset.labConfig) {
-        const key = el.dataset.labConfig;
-        if (!['pattern', 'trials', 'seed'].includes(key)) return;
-        const value =
-          key === 'pattern' ? el.value : el.value.trim() === '' ? NaN : Number(el.value);
-        const next = structuredClone(state.project.lab);
-        next[key] = value;
-        validateLab(next);
-        state.campaign = null;
-        update(p => (p.lab = next));
-        return;
-      }
-      if (el.dataset.task) {
-        update(p => (p.taskStatus[el.dataset.task] = el.value));
-        return;
-      }
-      if (el.dataset.partBasis) {
-        update(p => (p.parts.find(x => x.id === p.selectedPartId).tidBasis = el.value));
-        return;
-      }
-      if (!el.dataset.path) return;
-      const path = el.dataset.path;
-      let value =
-        el.type === 'number'
-          ? el.value === '' && el.dataset.nullable
-            ? null
-            : Number(el.value)
-          : el.value;
-      if (el.type === 'number' && el.value === '' && !el.dataset.nullable)
-        throw Error('숫자 입력이 필요합니다.');
-      if (el.dataset.percent) value /= 100;
-      update(p => {
-        const seg = path.split('.');
-        let obj = p;
-        if (seg[0] === 'part') {
-          obj = p.parts.find(x => x.id === p.selectedPartId);
-          seg.shift();
-        }
-        for (const k of seg.slice(0, -1)) obj = obj[k];
-        obj[seg.at(-1)] = value;
-        if (
-          path.startsWith('part.') &&
-          ['tidKrad', 'densityBits', 'tidSource'].includes(seg.at(-1))
-        )
-          obj.tidBasis = 'user';
-      });
-    } catch (error) {
-      el.setAttribute('aria-invalid', 'true');
-      notify(error.message, true);
+  if (rendering || !app.contains(el)) return;
+  try {
+    if (el.dataset.labConfig) {
+      const key = el.dataset.labConfig;
+      if (!['pattern', 'trials', 'seed'].includes(key)) return;
+      const value = key === 'pattern' ? el.value : el.value.trim() === '' ? NaN : Number(el.value);
+      const next = structuredClone(state.project.lab);
+      next[key] = value;
+      validateLab(next);
+      state.campaign = null;
+      update(p => (p.lab = next), false);
+      scheduleRender();
+      return;
     }
-  });
+    if (el.dataset.task) {
+      update(p => (p.taskStatus[el.dataset.task] = el.value), false);
+      scheduleRender();
+      return;
+    }
+    if (el.dataset.partBasis) {
+      update(p => (p.parts.find(x => x.id === p.selectedPartId).tidBasis = el.value), false);
+      scheduleRender();
+      return;
+    }
+    if (!el.dataset.path) return;
+    const path = el.dataset.path;
+    let value =
+      el.type === 'number'
+        ? el.value === '' && el.dataset.nullable
+          ? null
+          : Number(el.value)
+        : el.value;
+    if (el.type === 'number' && el.value === '' && !el.dataset.nullable)
+      throw Error('숫자 입력이 필요합니다.');
+    if (el.dataset.percent) value /= 100;
+    update(p => {
+      const seg = path.split('.');
+      let obj = p;
+      if (seg[0] === 'part') {
+        obj = p.parts.find(x => x.id === p.selectedPartId);
+        seg.shift();
+      }
+      for (const k of seg.slice(0, -1)) obj = obj[k];
+      obj[seg.at(-1)] = value;
+      if (path.startsWith('part.') && ['tidKrad', 'densityBits', 'tidSource'].includes(seg.at(-1)))
+        obj.tidBasis = 'user';
+    }, false);
+    scheduleRender();
+  } catch (error) {
+    el.setAttribute('aria-invalid', 'true');
+    notify(error.message, true);
+  }
 });
 app.addEventListener('submit', e => {
   if (e.target.id === 'lab-data-form') {
@@ -363,7 +435,9 @@ app.addEventListener('submit', e => {
       const hex = new FormData(e.target).get('hex').trim();
       const next = resetMemory(state.project.lab, hex);
       state.campaign = null;
-      update(p => (p.lab = next));
+      update(p => (p.lab = next), false);
+      formDrafts.delete(e.target.dataset.draftKey);
+      render();
       notify('기준 데이터를 기록하고 메모리를 초기화했습니다.');
     } catch (error) {
       notify(error.message, true);
@@ -373,21 +447,30 @@ app.addEventListener('submit', e => {
   if (e.target.id !== 'env-editor') return;
   e.preventDefault();
   try {
+    if (e.target.dataset.draftKey !== environmentDraftKey()) {
+      render();
+      notify('분석조건이 변경되었습니다. 새 조건의 입력을 확인한 후 적용하세요.', true);
+      return;
+    }
     const f = new FormData(e.target),
       num = k => (f.get(k).trim() === '' ? null : Number(f.get(k)));
+    let sharedEnvironmentChanged = false;
     update(p => {
       const m = p.mission,
         o = ORBITS.find(x => x.id === m.orbitId),
         basis = f.get('basis'),
         dose = num('dose');
       const matched = x => x.orbitId === m.orbitId && Math.abs(x.shieldMm - m.shieldMm) < 1e-8;
-      for (const row of p.environments.filter(matched)) {
+      const matchingRows = p.environments.filter(matched);
+      sharedEnvironmentChanged = matchingRows.length === 0;
+      for (const row of matchingRows) {
         const changed =
           row.annualTidKrad !== dose ||
           row.basis !== basis ||
           row.source !== f.get('source') ||
           row.model !== f.get('model') ||
           row.epoch !== f.get('epoch');
+        if (changed) sharedEnvironmentChanged = true;
         if (changed && row.partId !== p.selectedPartId) {
           row.seuPerBitDay = null;
           row.sefiPerDeviceDay = null;
@@ -420,8 +503,17 @@ app.addEventListener('submit', e => {
       const i = p.environments.findIndex(x => matched(x) && x.partId === p.selectedPartId);
       if (i < 0) p.environments.push(row);
       else p.environments[i] = row;
-    });
-    notify('선택 조건의 환경·오류율을 적용했습니다.');
+    }, false);
+    formDrafts.delete(e.target.dataset.draftKey);
+    const clearedDrafts = sharedEnvironmentChanged
+      ? clearEnvironmentDrafts(state.project.mission.orbitId, state.project.mission.shieldMm)
+      : 0;
+    render();
+    notify(
+      clearedDrafts
+        ? '환경·오류율을 적용하고, 환경 근거가 바뀐 같은 조건의 다른 부품 초안을 초기화했습니다.'
+        : '선택 조건의 환경·오류율을 적용했습니다.',
+    );
   } catch (error) {
     notify(error.message, true);
   }
@@ -436,6 +528,7 @@ document.querySelector('#project-file').addEventListener('change', async e => {
     p.lab ??= createLab();
     state.project = p;
     state.campaign = null;
+    formDrafts.clear();
     render();
     notify('시나리오와 모든 입력자료를 불러왔습니다.');
   } catch (error) {
@@ -452,6 +545,7 @@ document.querySelector('#environment-file').addEventListener('change', async e =
     const next = importEnvironmentCsv(state.project, await file.text());
     if (window.confirm(`검증된 ${next.environments.length}행으로 전체 환경자료를 교체할까요?`)) {
       state.project = next;
+      clearEnvironmentDrafts();
       render();
       notify('환경자료를 교체했습니다. 일치하는 조건만 계산에 사용합니다.');
     }
