@@ -16,10 +16,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
+          cache: npm
+      - name: Install development dependencies
+        run: npm ci
       - name: Format check
-        run: npx --yes prettier@3.9.9 --check "src/*.{js,css}" "tests/*.mjs"
+        run: npx --yes prettier@3.9.9 --check "src/*.{js,css}" "tests/**/*.mjs"
       - name: Test
         run: npm test
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser workflow regressions
+        run: npm run test:browser
       - name: Build
         run: npm run build
       - name: Committed standalone matches build
